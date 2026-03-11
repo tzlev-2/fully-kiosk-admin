@@ -1,0 +1,38 @@
+# Caddy reverse proxy עבור Fully Kiosk
+# הפעלה: caddy run --config Caddyfile
+# או עם משתנה סביבה: KIOSK_URL=http://192.168.1.50:2323 caddy run --config Caddyfile
+
+:{$PROXY_PORT:8765} {
+	# Preflight — CORS OPTIONS
+	@options method OPTIONS
+	respond @options "" 204
+
+	# כותרות CORS לכל תגובה
+	header {
+		Access-Control-Allow-Origin *
+		Access-Control-Allow-Methods "GET, POST, OPTIONS"
+		Access-Control-Allow-Headers "*"
+		-Server
+	}
+
+	# בדיקת חיות של הפרוקסי עצמו
+	respond /ping "pong" 200
+
+	# ניהול Fully Kiosk — מעביר לשרת Node
+	handle /restart* {
+		reverse_proxy localhost:{$RESTART_PORT:9000}
+	}
+	handle /status* {
+		reverse_proxy localhost:{$RESTART_PORT:9000}
+	}
+
+	# כל השאר — proxy לFully Kiosk
+	reverse_proxy {$KIOSK_URL:http://localhost:2323} {
+		header_up Host {upstream_hostport}
+		lb_try_duration 2s
+	}
+
+	handle_errors 502 503 504 {
+		reverse_proxy localhost:{$RESTART_PORT:9000}
+	}
+}
