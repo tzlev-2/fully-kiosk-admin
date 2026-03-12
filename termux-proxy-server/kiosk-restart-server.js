@@ -6,11 +6,25 @@ const PORT = process.env.RESTART_PORT ?? 9000;
 const KIOSK_URL = process.env.KIOSK_URL ?? "http://localhost:2323";
 const FULLY_COMPONENT = "com.fullykiosk.emm/de.ozerov.fully.MainActivity";
 
+const FULLY_STARTING_MSG = "Starting: Intent { cmp=com.fullykiosk.emm/de.ozerov.fully.MainActivity }";
+
+/**
+ * 
+ * @param {import("http").ServerResponse} res 
+ * @param {number} status 
+ * @param {any} object 
+ * @returns {void} 
+ */
 function json(res, status, data) {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(data));
 }
 
+/**
+ * 
+ * @param {string} msg 
+ * @returns {void}
+ */
 function log(msg) {
   console.log(`[${new Date().toISOString()}] ${msg}`);
 }
@@ -24,23 +38,35 @@ async function isKioskAlive() {
   }
 }
 
+/**
+ * 
+ * @param {import("http").ServerResponse} res 
+ * @returns {Promise<void>}
+ */
+async function startFullyKiosk(res) {
+  execFile("am", ["start", "-n", FULLY_COMPONENT], (err, stdout, stderr) => {
+
+    log(`am start stderr: ${stderr}`);
+
+    if (err || stderr) {
+      if (err?.message) log(`am start failed: ${err?.message}`);
+      if (err?.code) log(`am start exit code: ${err.code}`);
+      if (stderr) log(`am start stderr: ${stderr}`);
+
+      json(res, 500, { ok: false, error: err?.message || stderr });
+    }
+
+    if (stdout.includes(FULLY_STARTING_MSG)) {
+      log(`am start stdout: ${stdout}`);
+      log("Fully Kiosk is starting...");
+      json(res, 200, { ok: true });
+    }
+  })
+}
+
 createServer(async (req, res) => {
   const path = new URL(req.url, "http://x/").pathname;
   log(`${req.method} ${path}`);
-
-  // GET /restart — הפעלה מחדש של Fully Kiosk
-  if (path === "/restart") {
-    execFile("am", ["start", "-n", FULLY_COMPONENT], (err) => {
-      if (err) {
-        log(`am start failed: ${err.message}`);
-        json(res, 500, { ok: false, error: err.message });
-      } else {
-        log("Fully Kiosk restarted");
-        json(res, 200, { ok: true });
-      }
-    });
-    return;
-  }
 
   // GET /status — בדיקה אם Fully Kiosk רץ
   if (path === "/status") {
@@ -49,16 +75,21 @@ createServer(async (req, res) => {
     return;
   }
 
+  if (path === "/favicon.ico") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  // GET /restart — הפעלה מחדש של Fully Kiosk
+  if (path === "/restart") {
+    log("Received restart request");
+  }
+
   // כל שאר הבקשות (שגיאות 502/504 מ-Caddy) — הפעלה מחדש
-  execFile("am", ["start", "-n", FULLY_COMPONENT], (err) => {
-    if (err) {
-      log(`auto-restart failed: ${err.message}`);
-      json(res, 500, { ok: false, error: "kiosk_unavailable", restart: false });
-    } else {
-      log("auto-restart triggered by Caddy error");
-      json(res, 503, { ok: false, error: "kiosk_unavailable", restart: true });
-    }
-  });
+  startFullyKiosk(res);
+  return;
+
 }).listen(PORT, () => {
   log(`kiosk-server listening on :${PORT}`);
 });

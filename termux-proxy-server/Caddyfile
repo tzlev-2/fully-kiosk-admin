@@ -7,11 +7,12 @@
 	@options method OPTIONS
 	respond @options "" 204
 
-	# כותרות CORS לכל תגובה
+	# כותרות CORS + Private Network Access לכל תגובה
 	header {
 		Access-Control-Allow-Origin *
 		Access-Control-Allow-Methods "GET, POST, OPTIONS"
 		Access-Control-Allow-Headers "*"
+		Access-Control-Allow-Private-Network "true"
 		-Server
 	}
 
