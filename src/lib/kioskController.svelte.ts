@@ -193,67 +193,77 @@ class KioskController {
 		}
 	}
 
+	/** רענון מידע מכשיר ברקע — לא חוסם UI */
+	private refreshInBackground() {
+		this.getClient()
+			.getDeviceInfo()
+			.then((info) => {
+				if (info?.deviceId || info?.deviceName) this.deviceInfo = info;
+			})
+			.catch(() => {});
+	}
+
 	async toggleKioskMode() {
 		if (!this.deviceInfo) return;
-		if (this.deviceInfo.kioskMode) {
+		const wasOn = this.deviceInfo.kioskMode;
+		if (wasOn) {
 			if (!window.confirm(KIOSK_TEXTS.CONFIRM_DISABLE_KIOSK)) return;
 		}
 		this.isLoading = true;
 		try {
-			if (this.deviceInfo.kioskMode) {
+			if (wasOn) {
 				await this.getClient().disableKioskMode();
-				this.showFeedback('success', KIOSK_TEXTS.SUCCESS_KIOSK_MODE_OFF);
 			} else {
 				await this.getClient().enableKioskMode();
-				this.showFeedback('success', KIOSK_TEXTS.SUCCESS_KIOSK_MODE_ON);
 			}
-			const info = await this.getClient().getDeviceInfo();
-			if (info?.deviceId || info?.deviceName) this.deviceInfo = info;
+			this.deviceInfo.kioskMode = !wasOn;
+			this.showFeedback('success', wasOn ? KIOSK_TEXTS.SUCCESS_KIOSK_MODE_OFF : KIOSK_TEXTS.SUCCESS_KIOSK_MODE_ON);
 		} catch {
 			this.showFeedback('error', KIOSK_TEXTS.ERROR_COMMAND);
 		} finally {
 			this.isLoading = false;
 		}
+		this.refreshInBackground();
 	}
 
 	async toggleKiosk() {
 		if (!this.deviceInfo) return;
+		const wasLocked = this.deviceInfo.kioskLocked;
 		this.isLoading = true;
 		try {
-			if (this.deviceInfo.kioskLocked) {
+			if (wasLocked) {
 				await this.getClient().unlockKiosk();
-				this.showFeedback('success', KIOSK_TEXTS.SUCCESS_UNLOCKED);
 			} else {
 				await this.getClient().lockKiosk();
-				this.showFeedback('success', KIOSK_TEXTS.SUCCESS_LOCKED);
 			}
-			const info = await this.getClient().getDeviceInfo();
-			if (info?.deviceId || info?.deviceName) this.deviceInfo = info;
+			this.deviceInfo.kioskLocked = !wasLocked;
+			this.showFeedback('success', wasLocked ? KIOSK_TEXTS.SUCCESS_UNLOCKED : KIOSK_TEXTS.SUCCESS_LOCKED);
 		} catch {
 			this.showFeedback('error', KIOSK_TEXTS.ERROR_COMMAND);
 		} finally {
 			this.isLoading = false;
 		}
+		this.refreshInBackground();
 	}
 
 	async toggleMaintenance() {
 		if (!this.deviceInfo) return;
+		const wasOn = this.deviceInfo.maintenanceMode;
 		this.isLoading = true;
 		try {
-			if (this.deviceInfo.maintenanceMode) {
+			if (wasOn) {
 				await this.getClient().disableLockedMode();
-				this.showFeedback('success', KIOSK_TEXTS.SUCCESS_MAINTENANCE_OFF);
 			} else {
 				await this.getClient().enableLockedMode();
-				this.showFeedback('success', KIOSK_TEXTS.SUCCESS_MAINTENANCE_ON);
 			}
-			const info = await this.getClient().getDeviceInfo();
-			if (info?.deviceId || info?.deviceName) this.deviceInfo = info;
+			this.deviceInfo.maintenanceMode = !wasOn;
+			this.showFeedback('success', wasOn ? KIOSK_TEXTS.SUCCESS_MAINTENANCE_OFF : KIOSK_TEXTS.SUCCESS_MAINTENANCE_ON);
 		} catch {
 			this.showFeedback('error', KIOSK_TEXTS.ERROR_COMMAND);
 		} finally {
 			this.isLoading = false;
 		}
+		this.refreshInBackground();
 	}
 
 	async setVolume(level: number) {

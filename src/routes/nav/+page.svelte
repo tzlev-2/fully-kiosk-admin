@@ -23,7 +23,7 @@
 </script>
 
 <!-- אתרים מועדפים -->
-<div class="card bg-base-100 shadow-sm">
+<div class="card bg-base-100/80 shadow-sm border border-base-content/10 backdrop-blur lg:col-span-2">
 	<div class="card-body gap-4">
 		<h2 class="card-title text-base">🌐 {KIOSK_TEXTS.WEBSITES_SECTION}</h2>
 
@@ -95,7 +95,7 @@
 </div>
 
 <!-- פעולות ניווט -->
-<div class="card bg-base-100 shadow-sm">
+<div class="card bg-base-100/80 shadow-sm border border-base-content/10 backdrop-blur lg:col-span-2">
 	<div class="card-body gap-4">
 		<h2 class="card-title text-base">⚡ {KIOSK_TEXTS.ACTIONS_SECTION}</h2>
 		<ActionsPanel />

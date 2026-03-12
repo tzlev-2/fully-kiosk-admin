@@ -5,7 +5,7 @@
 </script>
 
 <!-- מידע מכשיר -->
-<div class="card bg-base-100 shadow-sm">
+<div class="card bg-base-100/80 shadow-sm border border-base-content/10 backdrop-blur lg:col-span-2">
 	<div class="card-body gap-4">
 		<h2 class="card-title text-base">📱 {KIOSK_TEXTS.DEVICE_INFO_TITLE}</h2>
 		<DeviceInfoPanel
@@ -17,7 +17,7 @@
 </div>
 
 <!-- מצב קיוסק + תחזוקה -->
-<div class="card bg-base-100 shadow-sm">
+<div class="card bg-base-100/80 shadow-sm border border-base-content/10 backdrop-blur">
 	<div class="card-body gap-4">
 		<h2 class="card-title text-base">⚙️ {KIOSK_TEXTS.KIOSK_SECTION}</h2>
 		<div class="flex flex-col gap-3">
@@ -81,8 +81,8 @@
 	</div>
 </div>
 
-<!-- שמע ומסך -->
-<div class="card bg-base-100 shadow-sm">
+<!-- עוצמת שמע -->
+<div class="card bg-base-100/80 shadow-sm border border-base-content/10 backdrop-blur">
 	<div class="card-body gap-4">
 		<h2 class="card-title text-base">🔊 {KIOSK_TEXTS.VOLUME_LABEL}</h2>
 
@@ -92,7 +92,7 @@
 			max="100"
 		></progress>
 
-		<div class="flex items-center gap-2">
+		<div class="flex items-center justify-center gap-2">
 			<button
 				class="btn btn-circle btn-sm btn-ghost border border-base-300"
 				onclick={() => ctrl.volumeDown()}
@@ -116,7 +116,13 @@
 				{ctrl.isMuted ? 0 : ctrl.volumeLevel}%
 			</span>
 		</div>
+	</div>
+</div>
 
+<!-- מסך -->
+<div class="card bg-base-100/80 shadow-sm border border-base-content/10 backdrop-blur">
+	<div class="card-body gap-4">
+		<h2 class="card-title text-base">💡 מסך</h2>
 		<button
 			class="btn btn-warning btn-outline w-full"
 			onclick={() => ctrl.toggleScreen()}
@@ -128,7 +134,7 @@
 </div>
 
 <!-- פעולות קריטיות -->
-<div class="card bg-base-100 shadow-sm">
+<div class="card bg-base-100/80 shadow-sm border border-base-content/10 backdrop-blur">
 	<div class="card-body gap-3">
 		<h2 class="card-title text-base">♻️ פעולות קריטיות</h2>
 		<button

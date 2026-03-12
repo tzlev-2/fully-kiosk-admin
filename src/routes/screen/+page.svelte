@@ -3,7 +3,7 @@
 	import ScreenTab from '../_components/ScreenTab.svelte';
 </script>
 
-<div class="card bg-base-100 shadow-sm">
+<div class="card bg-base-100/80 shadow-sm border border-base-content/10 backdrop-blur lg:col-span-2">
 	<div class="card-body gap-4">
 		<h2 class="card-title text-base">📷 {KIOSK_TEXTS.TAB_SCREEN}</h2>
 		<ScreenTab />

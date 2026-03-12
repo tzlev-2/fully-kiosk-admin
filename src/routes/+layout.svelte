@@ -85,9 +85,9 @@
 	<div class="drawer drawer-end lg:drawer-open">
 		<input id="nav-drawer" type="checkbox" class="drawer-toggle" />
 
-		<div class="drawer-content flex h-dvh flex-col">
+		<div class="drawer-content flex h-dvh flex-col bg-base-300">
 			<nav
-				class="navbar min-h-14 shrink-0 gap-2 border-b border-base-200 bg-base-100 px-3"
+				class="navbar min-h-14 shrink-0 gap-2 border-b border-base-content/10 bg-base-200 px-3"
 				dir="rtl"
 			>
 				<span class="flex-1 truncate text-base font-black">🖥️ {KIOSK_TEXTS.PAGE_TITLE}</span>
@@ -150,7 +150,7 @@
 			{/if}
 
 			<main
-				class="flex flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-4 pb-24 lg:pb-5"
+				class="flex flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-4 pb-24 lg:grid lg:grid-cols-2 lg:items-start lg:pb-5"
 				dir="rtl"
 			>
 				{@render children()}
@@ -168,26 +168,26 @@
 
 		<div class="drawer-side z-40">
 			<label for="nav-drawer" class="drawer-overlay"></label>
-			<aside class="flex min-h-full w-52 flex-col border-r border-base-300 bg-base-200" dir="rtl">
-				<div class="border-b border-base-300 p-4">
+			<aside class="flex min-h-full w-52 flex-col border-r border-base-content/10 bg-base-200" dir="rtl">
+				<div class="border-b border-base-content/10 p-4">
 					<p class="text-sm font-black">🖥️ {KIOSK_TEXTS.PAGE_TITLE}</p>
 					<p class="mt-0.5 truncate text-xs text-base-content/50">{ctrl.deviceInfo.deviceName}</p>
 				</div>
-				<ul class="menu flex-1 gap-0.5 menu-sm p-3">
+				<nav class="flex flex-1 flex-col gap-1 p-3">
 					{#each tabs as tab (tab.href)}
-						<li>
-							<a
-								href={tab.href}
-								class="font-semibold"
-								class:menu-active={page.url.pathname === tab.href}
-							>
-								{tab.emoji}
-								{tab.label}
-							</a>
-						</li>
+						<a
+							href={tab.href}
+							class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors"
+							class:bg-primary={page.url.pathname === tab.href}
+							class:text-primary-content={page.url.pathname === tab.href}
+							class:hover:bg-base-300={page.url.pathname !== tab.href}
+						>
+							<span class="text-lg">{tab.emoji}</span>
+							{tab.label}
+						</a>
 					{/each}
-				</ul>
-				<div class="border-t border-base-300 p-3">
+				</nav>
+				<div class="border-t border-base-content/10 p-3">
 					<button class="btn w-full btn-outline btn-sm btn-error" onclick={() => ctrl.disconnect()}>
 						{KIOSK_TEXTS.DISCONNECT}
 					</button>
