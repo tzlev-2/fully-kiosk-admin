@@ -140,7 +140,7 @@
 
 			{#if ctrl.feedback}
 				<div
-					class="fixed bottom-24 left-1/2 z-50 alert w-auto max-w-xs -translate-x-1/2 text-sm font-semibold shadow-lg lg:bottom-6 animate-fade-in-up"
+					class="fixed bottom-24 left-1/2 z-50 alert w-auto max-w-xs -translate-x-1/2 animate-fade-in-up text-sm font-semibold shadow-lg lg:bottom-6"
 					class:alert-success={ctrl.feedback.type === 'success'}
 					class:alert-error={ctrl.feedback.type === 'error'}
 					role="alert"
@@ -168,7 +168,10 @@
 
 		<div class="drawer-side z-40">
 			<label for="nav-drawer" class="drawer-overlay"></label>
-			<aside class="flex min-h-full w-52 flex-col border-r border-base-content/10 bg-base-200" dir="rtl">
+			<aside
+				class="flex min-h-full w-52 flex-col border-r border-base-content/10 bg-base-200"
+				dir="rtl"
+			>
 				<div class="border-b border-base-content/10 p-4">
 					<p class="text-sm font-black">🖥️ {KIOSK_TEXTS.PAGE_TITLE}</p>
 					<p class="mt-0.5 truncate text-xs text-base-content/50">{ctrl.deviceInfo.deviceName}</p>
