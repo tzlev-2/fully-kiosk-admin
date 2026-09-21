@@ -223,7 +223,7 @@ describe('KioskStore', () => {
 
 	it('bulk screenOn counts only connected devices and skips fetch for offline', async () => {
 		const online = kiosk.addDevice({ baseUrl: 'http://online:2323', password: 'pw' });
-		const offline = kiosk.addDevice({ baseUrl: 'http://offline:2323', password: 'pw' });
+		kiosk.addDevice({ baseUrl: 'http://offline:2323', password: 'pw' });
 		online.deviceInfo = mockDeviceInfo('online-id');
 
 		const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ status: 'OK' }) }));

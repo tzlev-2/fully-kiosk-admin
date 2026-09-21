@@ -60,3 +60,18 @@
 
 - `bun run check` — ירוק
 - `bun run test:unit -- --run` — 20 טסטים, כולל bulk/rename/removeDevice
+
+## 2026-09-22 — slice s2-devices (commit 2)
+
+### עמוד /devices — כרטיסים ופעולות קבוצתיות
+
+- `DeviceCard`: סטטוס, סוללה, IP, שינוי שם, מחיקה, חיבור מחדש
+- `BulkActions`: ניווט, מסך, נעילה, ווליום, ריסטארט אפליקציה עם משוב מאוגד
+- מחרוזות חדשות ב-`texts.ts` לפי הבריף
+
+#### בדיקות
+
+- `bun run check` — ירוק
+- `bun run test:unit -- --run` — ירוק
+- `bunx eslint .` — ירוק
+- `prettier --check` על קבצי הסלייס — ירוק
