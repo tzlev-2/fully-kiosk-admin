@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, getContext } from 'svelte';
+	import DeviceScreen from '$lib/components/DeviceScreen.svelte';
 	import { KIOSK_TEXTS } from '$lib/texts';
 	import { kiosk } from '$lib/kiosk-store.svelte';
 	import type { KioskDevice } from '$lib/kiosk-device.svelte';
@@ -48,56 +49,12 @@
 	});
 </script>
 
-<div
-	class="card border border-base-content/10 bg-base-100/80 shadow-sm backdrop-blur lg:col-span-2"
->
-	<div class="card-body gap-4">
-		<h2 class="card-title text-base">📷 {KIOSK_TEXTS.TAB_SCREEN}</h2>
-
-		<div class="flex flex-col gap-4">
-			<div class="flex flex-wrap items-center gap-2">
-				<button
-					class="btn btn-sm btn-neutral"
-					onclick={capture}
-					disabled={isCapturing || liveViewActive}
-				>
-					{#if isCapturing && !liveViewActive}
-						<span class="loading loading-xs loading-spinner"></span>
-					{/if}
-					📷 {KIOSK_TEXTS.SCREENSHOT_BTN}
-				</button>
-
-				<button
-					class="btn btn-sm"
-					class:btn-success={!liveViewActive}
-					class:btn-error={liveViewActive}
-					onclick={toggleLiveView}
-					disabled={isCapturing && !liveViewActive}
-				>
-					{liveViewActive ? '⏹ ' + KIOSK_TEXTS.LIVE_VIEW_STOP : '▶ ' + KIOSK_TEXTS.LIVE_VIEW_START}
-				</button>
-
-				{#if liveViewActive}
-					<span class="animate-pulse text-sm font-bold text-error"> ● LIVE </span>
-				{/if}
-			</div>
-
-			<div
-				class="flex min-h-48 items-center justify-center overflow-hidden rounded-xl border border-base-300 bg-base-200"
-			>
-				{#if screenshotUrl}
-					<img
-						src={screenshotUrl}
-						alt={KIOSK_TEXTS.SCREENSHOT_ALT}
-						class="max-h-96 w-full object-contain"
-					/>
-				{:else}
-					<div class="flex flex-col items-center gap-2 p-8 text-base-content/30">
-						<span class="text-5xl opacity-40">📷</span>
-						<p class="text-center text-sm">{KIOSK_TEXTS.SCREENSHOT_EMPTY}</p>
-					</div>
-				{/if}
-			</div>
-		</div>
-	</div>
-</div>
+<DeviceScreen
+	{device}
+	{screenshotUrl}
+	{isCapturing}
+	showControls={true}
+	{liveViewActive}
+	onCapture={capture}
+	onToggleLiveView={toggleLiveView}
+/>

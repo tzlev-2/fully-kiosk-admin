@@ -93,6 +93,7 @@ export const KIOSK_TEXTS = {
 	DEVICES_TITLE: 'מכשירים',
 	ADD_DEVICE: 'הוסף מכשיר',
 	NO_DEVICES: 'עדיין לא הוספת מכשירים.',
+	NONE_CONNECTED: 'אין מכשירים מחוברים כרגע.',
 	UNKNOWN_DEVICE: 'מכשיר לא מוכר',
 	DEVICE_OFFLINE: 'המכשיר אינו מחובר',
 	RECONNECT: 'התחבר מחדש',
