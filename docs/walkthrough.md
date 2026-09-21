@@ -1,5 +1,47 @@
 # יומן פיתוח — ניהול קיוסק פולי (kiosk-admin)
 
+## 2026-09-22 01:13
+
+### ‏termux-proxy-server: הסקריפט עובד בעולם האמיתי, ודף מצב-קיוסק מוגש מהמכשיר
+
+הסקריפט `termux-proxy-server/setup.sh` נבדק לראשונה על מכשיר אמיתי
+(`TAB KINGKONG`, אנדרואיד 13, ‏`10.8.0.7`) ונמצא שהוא נופל בצעד האחרון —
+ותוקן עד לריצה נקייה מאפס, כולל על Termux שהותקן מחדש מהיסוד.
+
+#### מה תוקן ב-`setup.sh`
+
+- **`export SVDIR`** — ‏`sv up` נכשל ב-`unable to change to service directory`
+  ב-shell לא-אינטראקטיבי, והסקריפט מת ב-`set -e` **אחרי** שהפריסה כבר הצליחה
+  (‏`runsvdir` מרים את השירותים לבד). דיווח כישלון על הצלחה.
+- **ביטול שכפול הקונפיג** — הסקריפט החזיק heredoc של `Caddyfile`
+  ושל `kiosk-restart-server.js`, וה-heredoc כבר **נשר מהקובץ שבריפו**: חסרה בו
+  `Access-Control-Allow-Private-Network`. עכשיו הוא מעתיק את הקבצים שלידו ונופל
+  אם הם חסרים. 318 שורות → 130.
+- **‏`caddy validate`** לפני הפעלה, ו**אימות `/ping` + `/status`** בסוף עם זנב-לוגים בכשל.
+- **שרידות reboot** — יצירת `~/.termux/boot/start-services.sh` ובדיקה אם
+  `com.termux.boot` מותקן (אזהרה מפורשת אם לא).
+- **`pkg upgrade` עם `--force-confold/--force-confdef` ו-`DEBIAN_FRONTEND=noninteractive`** —
+  על bootstrap טרי dpkg שואל על `openssl.cnf`, מקבל EOF, ו-`pkg` נופל ב-exit 100;
+  ובלי השדרוג `node` לא נטען כלל (`OSSL_PROVIDER_add_conf_parameter`).
+- **אימות מקצה-לקצה ממתין ל-`/status`** ולא ל-`/ping` — ‏Caddy עונה ל-ping לבדו,
+  וזה ייצר כשל-שווא בזמן ש-node עלה.
+
+#### דף המעבר למצב קיוסק
+
+- `web/enable-kiosk-mode.html` (מקור: `tzlev-2/FullyKiosk`) עם נפילה מסודרת
+  כשהוא נטען מחוץ ל-Fully.
+- ‏Caddyfile: ‏`handle /kiosk*` להגשת הדף, ו-`handle /files/*` לקבצים סטטיים
+  (‏ZIP ל-`loadZipFile`).
+- ⚠️ **לא לטעון דרך `localhost`** — ‏Fully ממפה כל כתובת localhost לנתיב בדיסק,
+  והמסך מציג `File /:8765/kiosk not found`. עם ה-IP של המכשיר זה עובד:
+  הדף נטען, ה-JS interface ענה, והוא חזר לדף הקודם.
+
+#### `kiosk-restart-server.js`
+
+`startFullyKiosk` ענה פעמיים כש-`am` הדפיס ל-stderr והצליח (`ERR_HTTP_HEADERS_SENT`),
+ולא ענה כלל כש-stdout לא תאם — עכשיו בדיוק תגובה אחת בכל מסלול.
+
+
 ## 2026-03-11 19:30
 
 ### שדרוג ארכיטקטורה: PWA אופליין, SPA mode, וארגון קוד

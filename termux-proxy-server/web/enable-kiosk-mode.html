@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>מצב קיוסק</title>
+
+	<!--
+		מקור: tzlev-2/FullyKiosk/enable-kiosk-mode.html
+		הדף חייב להיטען *בתוך* Fully Kiosk — האובייקט fully מוזרק רק ל-webview שלו.
+		⚠️ לטעון דרך *כתובת המכשיר*, לא localhost/127.0.0.1: ‏Fully חוטף כתובות
+		localhost ומחפש קובץ מקומי ("File /:8765/kiosk not found").
+		טעינה מרחוק:  /?cmd=loadURL&url=http://<כתובת-המכשיר>:8765/kiosk&password=<PW>
+	-->
+	<script>
+		(() => {
+			const out = (msg) => { document.body.textContent = msg; };
+
+			if (typeof fully === "undefined") {
+				// דפדפן רגיל, או ה-JS interface של Fully כבוי
+				out("הדף חייב להיטען בתוך Fully Kiosk");
+				return;
+			}
+
+			if (fully.getBooleanSetting("kioskMode")) {
+				history.back();   // כבר במצב קיוסק — חוזרים לדף הקודם
+				return;
+			}
+
+			fully.setBooleanSetting("kioskMode", true);
+			out("מצב קיוסק הופעל");
+		})();
+	</script>
+</head>
+
+<body></body>
+
+</html>

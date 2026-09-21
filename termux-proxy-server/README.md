@@ -263,3 +263,24 @@ scrcpy.exe `
   --max-size 500 `
   --camera-id=0 
 ````
+
+---
+
+## דף המעבר למצב קיוסק (`/kiosk`)
+
+‏Caddy מגיש את `web/enable-kiosk-mode.html` בנתיב `/kiosk`. הדף משתמש
+ב-JS interface של Fully (`fully.getBooleanSetting` / `setBooleanSetting`),
+ולכן הוא עובד **רק כשהוא נטען בתוך Fully** — בדפדפן רגיל הוא מציג הודעה ותו לא.
+
+```bash
+# הפעלת מצב קיוסק מרחוק (אם כבר פעיל — הדף חוזר לדף הקודם)
+curl --get --data-urlencode "url=http://<כתובת-המכשיר>:8765/kiosk" \
+     "http://<כתובת-המכשיר>:2323/?cmd=loadURL&password=<PW>&type=json"
+```
+
+⚠️ **לא להשתמש ב-`localhost` או ב-`127.0.0.1` בכתובת שנמסרת ל-`loadURL`.**
+‏Fully חוטף כתובות כאלה ומנסה לפתוח **קובץ** מקומי; המסך יראה
+`File /:8765/kiosk not found`. עם כתובת ה-IP של המכשיר זה עובד
+(אומת 2026-09-21 על `10.8.0.7`: הדף נטען, זיהה `kioskMode=true` וחזר לדף המשחק).
+
+ה-root של הקבצים נקבע ע"י `WEB_ROOT` (ברירת מחדל: `~/.config/kiosk-proxy/web`).

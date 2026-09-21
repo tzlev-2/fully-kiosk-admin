@@ -27,6 +27,20 @@
 		reverse_proxy localhost:{$RESTART_PORT:9000}
 	}
 
+	# דף המעבר למצב קיוסק — מוגש מקומית כדי ש-Fully יטען אותו מ-origin שלו
+	handle /kiosk* {
+		root * {$WEB_ROOT:/data/data/com.termux/files/home/.config/kiosk-proxy/web}
+		rewrite * /enable-kiosk-mode.html
+		file_server
+	}
+
+	# קבצים סטטיים ש-Fully מוריד מאיתנו (למשל tools-for-kiosk.zip ל-loadZipFile)
+	handle /files/* {
+		root * {$WEB_ROOT:/data/data/com.termux/files/home/.config/kiosk-proxy/web}
+		uri strip_prefix /files
+		file_server
+	}
+
 	# כל השאר — proxy לFully Kiosk
 	reverse_proxy {$KIOSK_URL:http://localhost:2323} {
 		header_up Host {upstream_hostport}

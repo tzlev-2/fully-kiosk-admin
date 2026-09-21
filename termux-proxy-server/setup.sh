@@ -1,217 +1,139 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# סקריפט התקנה — Caddy CORS Proxy + kiosk-restart-server
-# הרצה: bash setup.sh
+# פריסת Caddy CORS Proxy + kiosk-restart-server כשירותי runit ב-Termux.
+#
+# רץ *על המכשיר*, בתוך Termux. הקבצים Caddyfile ו-kiosk-restart-server.js
+# נלקחים מהתיקייה שליד הסקריפט — לכן מעתיקים את התיקייה כולה:
+#   scp -P 8022 -r termux-proxy-server u@<ip>:~/ && ssh ... 'bash ~/termux-proxy-server/setup.sh'
 
 set -euo pipefail
 
+die() { echo "✗ $*" >&2; exit 1; }
+
+# --- סביבה ---
+[ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/sh" ] || die "הסקריפט חייב לרוץ בתוך Termux (PREFIX לא מוגדר)"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_DIR="$HOME/.config/kiosk-proxy"
-SERVICE_DIR="$PREFIX/var/service"
 LOG_DIR="$PREFIX/var/log/sv"
-SHELL_BIN="/data/data/com.termux/files/usr/bin/sh"
+SHELL_BIN="$PREFIX/bin/sh"
+BOOT_DIR="$HOME/.termux/boot"
+SERVICES="caddy kiosk-restart"
+
+# sv/sv-enable קוראים את SVDIR מהסביבה; ב-shell לא-אינטראקטיבי (SSH) הוא ריק
+export SVDIR="$PREFIX/var/service"
+
+for f in Caddyfile kiosk-restart-server.js web/enable-kiosk-mode.html; do
+	[ -f "$SCRIPT_DIR/$f" ] || die "חסר $f ליד הסקריפט ($SCRIPT_DIR) — להעתיק את התיקייה כולה"
+done
 
 echo "=== התקנת חבילות ==="
-pkg update
-pkg install -y caddy termux-services nodejs
+# dpkg שואל על conffiles (למשל openssl.cnf) ונופל כש-stdin סגור — לכן הדגלים
+APT_OPTS="-o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef"
+export DEBIAN_FRONTEND=noninteractive
+pkg update -y
+pkg install -y $APT_OPTS caddy nodejs termux-services
+# ‏bootstrap טרי מגיע עם openssl ישן מדי ל-node:
+#   CANNOT LINK EXECUTABLE "node": cannot locate symbol "OSSL_PROVIDER_add_conf_parameter"
+pkg upgrade -y $APT_OPTS openssl nodejs || echo "  ⚠ pkg upgrade החזיר שגיאה — ממשיך ובודק את node עצמו"
+node --version >/dev/null 2>&1 || die "node לא רץ אחרי ההתקנה: $(node --version 2>&1 | head -1)"
 
-echo "=== יצירת תיקיית קונפיגורציה: $CONFIG_DIR ==="
+echo "=== קונפיגורציה: $CONFIG_DIR ==="
 mkdir -p "$CONFIG_DIR"
+# מקור-אמת יחיד: הקבצים שבריפו, לא עותק מוטמע בסקריפט
+cp "$SCRIPT_DIR/Caddyfile" "$CONFIG_DIR/Caddyfile"
+cp "$SCRIPT_DIR/kiosk-restart-server.js" "$CONFIG_DIR/kiosk-restart-server.js"
+# node עדכני מזהה ESM לבד, אבל בגרסאות ישנות import ב-.js נופל
+printf '{"type":"module"}\n' > "$CONFIG_DIR/package.json"
+# web/ — דפים שמוגשים למכשיר עצמו (enable-kiosk-mode.html)
+rm -rf "$CONFIG_DIR/web"
+cp -r "$SCRIPT_DIR/web" "$CONFIG_DIR/web"
+echo "  ✓ Caddyfile · kiosk-restart-server.js · package.json · web/"
 
-# --- Caddyfile ---
-cat > "$CONFIG_DIR/Caddyfile" << 'CADDYFILE'
-# Caddy reverse proxy עבור Fully Kiosk
-# הפעלה: caddy run --config Caddyfile
-# או עם משתנה סביבה: KIOSK_URL=http://192.168.1.50:2323 caddy run --config Caddyfile
+caddy validate --config "$CONFIG_DIR/Caddyfile" >/dev/null 2>&1 \
+	|| die "Caddyfile לא תקין — caddy validate נכשל"
+echo "  ✓ caddy validate"
 
-:{$PROXY_PORT:8765} {
-	# Preflight — CORS OPTIONS
-	@options method OPTIONS
-	respond @options "" 204
-
-	# כותרות CORS לכל תגובה
-	header {
-		Access-Control-Allow-Origin *
-		Access-Control-Allow-Methods "GET, POST, OPTIONS"
-		Access-Control-Allow-Headers "*"
-		-Server
-	}
-
-	# בדיקת חיות של הפרוקסי עצמו
-	respond /ping "pong" 200
-
-	# ניהול Fully Kiosk — מעביר לשרת Node
-	handle /restart* {
-		reverse_proxy localhost:{$RESTART_PORT:9000}
-	}
-	handle /status* {
-		reverse_proxy localhost:{$RESTART_PORT:9000}
-	}
-
-	# כל השאר — proxy לFully Kiosk
-	reverse_proxy {$KIOSK_URL:http://localhost:2323} {
-		header_up Host {upstream_hostport}
-		lb_try_duration 2s
-	}
-
-	handle_errors 502 503 504 {
-		reverse_proxy localhost:{$RESTART_PORT:9000}
-	}
-}
-CADDYFILE
-
-echo "  ✓ Caddyfile"
-
-# --- kiosk-restart-server.js ---
-cat > "$CONFIG_DIR/kiosk-restart-server.js" << 'NODEJS'
-// שרת ניהול Fully Kiosk — restart, status
-import { createServer } from "http";
-import { execFile } from "child_process";
-
-const PORT = process.env.RESTART_PORT ?? 9000;
-const KIOSK_URL = process.env.KIOSK_URL ?? "http://localhost:2323";
-const FULLY_COMPONENT = "com.fullykiosk.emm/de.ozerov.fully.MainActivity";
-
-const FULLY_STARTING_MSG = "Starting: Intent { cmp=com.fullykiosk.emm/de.ozerov.fully.MainActivity }";
-
-/**
- * 
- * @param {import("http").ServerResponse} res 
- * @param {number} status 
- * @param {any} object 
- * @returns {void} 
- */
-function json(res, status, data) {
-  res.writeHead(status, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(data));
+# --- שירותי runit ---
+make_service() {
+	local name="$1" cmd="$2"
+	mkdir -p "$SVDIR/$name/log" "$LOG_DIR/$name"
+	printf '#!%s\nexec %s 2>&1\n' "$SHELL_BIN" "$cmd"            > "$SVDIR/$name/run"
+	printf '#!%s\nexec svlogd -tt %s\n' "$SHELL_BIN" "$LOG_DIR/$name" > "$SVDIR/$name/log/run"
+	chmod +x "$SVDIR/$name/run" "$SVDIR/$name/log/run"
+	rm -f "$SVDIR/$name/down"   # זה מה ש-sv-enable עושה: מאפשר הפעלה אוטומטית
+	echo "  ✓ $name"
 }
 
-/**
- * 
- * @param {string} msg 
- * @returns {void}
- */
-function log(msg) {
-  console.log(`[${new Date().toISOString()}] ${msg}`);
-}
+echo "=== יצירת שירותים ==="
+make_service caddy         "caddy run --config $CONFIG_DIR/Caddyfile"
+make_service kiosk-restart "node $CONFIG_DIR/kiosk-restart-server.js"
 
-async function isKioskAlive() {
-  try {
-    const res = await fetch(KIOSK_URL, { signal: AbortSignal.timeout(3000) });
-    return res.status < 500;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 
- * @param {import("http").ServerResponse} res 
- * @returns {Promise<void>}
- */
-async function startFullyKiosk(res) {
-  execFile("am", ["start", "-n", FULLY_COMPONENT], (err, stdout, stderr) => {
-
-    log(`am start stderr: ${stderr}`);
-
-    if (err || stderr) {
-      if (err?.message) log(`am start failed: ${err?.message}`);
-      if (err?.code) log(`am start exit code: ${err.code}`);
-      if (stderr) log(`am start stderr: ${stderr}`);
-
-      json(res, 500, { ok: false, error: err?.message || stderr });
-    }
-
-    if (stdout.includes(FULLY_STARTING_MSG)) {
-      log(`am start stdout: ${stdout}`);
-      log("Fully Kiosk is starting...");
-      json(res, 200, { ok: true });
-    }
-  })
-}
-
-createServer(async (req, res) => {
-  const path = new URL(req.url, "http://x/").pathname;
-  log(`${req.method} ${path}`);
-
-  // GET /status — בדיקה אם Fully Kiosk רץ
-  if (path === "/status") {
-    const alive = await isKioskAlive();
-    json(res, 200, { alive, kiosk_url: KIOSK_URL });
-    return;
-  }
-
-  if (path === "/favicon.ico") {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
-
-  // GET /restart — הפעלה מחדש של Fully Kiosk
-  if (path === "/restart") {
-    log("Received restart request");
-  }
-
-  // כל שאר הבקשות (שגיאות 502/504 מ-Caddy) — הפעלה מחדש
-  startFullyKiosk(res);
-  return;
-
-}).listen(PORT, () => {
-  log(`kiosk-server listening on :${PORT}`);
-});
-
-NODEJS
-
-echo "  ✓ kiosk-restart-server.js"
-
-# === סרוויס caddy ===
-echo "=== יצירת סרוויס caddy ==="
-mkdir -p "$SERVICE_DIR/caddy/log"
-mkdir -p "$LOG_DIR/caddy"
-
-cat > "$SERVICE_DIR/caddy/run" << EOF
+# --- שרידות reboot ---
+echo "=== Termux:Boot ==="
+mkdir -p "$BOOT_DIR"
+cat > "$BOOT_DIR/start-services.sh" << BOOTEOF
 #!$SHELL_BIN
-exec caddy run --config $HOME/.config/kiosk-proxy/Caddyfile 2>&1
-EOF
+termux-wake-lock
+runsvdir -P $SVDIR
+BOOTEOF
+chmod +x "$BOOT_DIR/start-services.sh"
+echo "  ✓ $BOOT_DIR/start-services.sh"
 
-cat > "$SERVICE_DIR/caddy/log/run" << EOF
-#!$SHELL_BIN
-exec svlogd -tt $LOG_DIR/caddy
-EOF
+if pm list packages 2>/dev/null | grep -q '^package:com.termux.boot$'; then
+	echo "  ✓ אפליקציית Termux:Boot מותקנת"
+else
+	echo "  ⚠ אפליקציית Termux:Boot (com.termux.boot) אינה מותקנת —"
+	echo "    השירותים לא יעלו אחרי אתחול. להתקין מ-F-Droid ולהריץ אותה פעם אחת."
+fi
 
-chmod +x "$SERVICE_DIR/caddy/run"
-chmod +x "$SERVICE_DIR/caddy/log/run"
-echo "  ✓ caddy service"
+# --- הפעלה ---
+echo "=== הפעלת שירותים ==="
+if ! pgrep -f "runsvdir.*$SVDIR" >/dev/null 2>&1; then
+	echo "  ⚠ runsvdir אינו רץ — מפעיל ברקע"
+	nohup runsvdir -P "$SVDIR" >/dev/null 2>&1 &
+fi
 
-# === סרוויס kiosk-restart ===
-echo "=== יצירת סרוויס kiosk-restart ==="
-mkdir -p "$SERVICE_DIR/kiosk-restart/log"
-mkdir -p "$LOG_DIR/kiosk-restart"
+for s in $SERVICES; do
+	# runsvdir סורק כל ~5 שניות; עד שהוא יוצר supervise/ אי אפשר לדבר עם השירות
+	i=0
+	until sv status "$s" >/dev/null 2>&1 || [ "$i" -ge 15 ]; do sleep 2; i=$((i+1)); done
+	sv status "$s" >/dev/null 2>&1 || die "$s לא נקלט ע\"י runsvdir"
+	sv restart "$s" >/dev/null 2>&1 || true   # אם כבר רץ — לטעון קונפיג חדש
+done
 
-cat > "$SERVICE_DIR/kiosk-restart/run" << EOF
-#!$SHELL_BIN
-exec node $HOME/.config/kiosk-proxy/kiosk-restart-server.js 2>&1
-EOF
+# --- אימות ---
+echo "=== אימות ==="
+PORT="${PROXY_PORT:-8765}"
 
-cat > "$SERVICE_DIR/kiosk-restart/log/run" << EOF
-#!$SHELL_BIN
-exec svlogd -tt $LOG_DIR/kiosk-restart
-EOF
+# ממתינים ל-/status ולא ל-/ping: ‏/ping נענה ע"י Caddy לבדו, ולכן עובר גם
+# כששרת ה-node עדיין עולה — זה מייצר כשל-שווא באימות שבא אחריו.
+i=0
+until curl -s -m 3 "localhost:$PORT/status" 2>/dev/null | grep -q '"alive"' || [ "$i" -ge 15 ]; do
+	sleep 2; i=$((i+1))
+done
 
-chmod +x "$SERVICE_DIR/kiosk-restart/run"
-chmod +x "$SERVICE_DIR/kiosk-restart/log/run"
-echo "  ✓ kiosk-restart service"
+fail=0
+[ "$(curl -s -m 3 "localhost:$PORT/ping" 2>/dev/null)" = "pong" ] \
+	&& echo "  ✓ /ping → pong" || { echo "  ✗ /ping נכשל"; fail=1; }
+status_json="$(curl -s -m 5 "localhost:$PORT/status" 2>/dev/null || true)"
+case "$status_json" in
+	*'"alive"'*) echo "  ✓ /status → $status_json" ;;
+	*) echo "  ✗ /status נכשל (${status_json:-אין תשובה})"; fail=1 ;;
+esac
 
-# === הפעלה ===
-echo "=== מפעיל סרוויסים ==="
-sv up caddy
-sv up kiosk-restart
+if [ "$fail" -ne 0 ]; then
+	echo "--- לוגים אחרונים ---" >&2
+	for s in $SERVICES; do echo "[$s]" >&2; tail -5 "$LOG_DIR/$s/current" >&2 2>/dev/null || true; done
+	die "הפריסה לא עברה אימות"
+fi
 
-sv-enable caddy
-sv-enable kiosk-restart
+sv status $SERVICES
 
-echo ""
-echo "=== הסתיים בהצלחה! ==="
-echo "  Caddyfile:             $CONFIG_DIR/Caddyfile"
-echo "  kiosk-restart-server:  $CONFIG_DIR/kiosk-restart-server.js"
-echo "  סטטוס:                 sv status caddy && sv status kiosk-restart"
-echo "  פרוקסי זמין ב:        http://localhost:8765"
-echo "  לוגים זמינים ב-       $LOG_DIR/sv/caddy/ ו- $LOG_DIR/sv/kiosk-restart/"
+cat << DONEEOF
+
+=== הסתיים בהצלחה ===
+  קונפיג:   $CONFIG_DIR
+  סטטוס:    export SVDIR=$SVDIR && sv status $SERVICES
+  לוגים:    $LOG_DIR/{caddy,kiosk-restart}/current
+  פרוקסי:   http://localhost:$PORT  (וגם מהרשת/WG על אותו פורט)
+DONEEOF

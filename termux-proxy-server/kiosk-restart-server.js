@@ -45,23 +45,27 @@ async function isKioskAlive() {
  */
 async function startFullyKiosk(res) {
   execFile("am", ["start", "-n", FULLY_COMPONENT], (err, stdout, stderr) => {
+    // כל מסלול חייב לענות פעם אחת בדיוק: תגובה כפולה = ERR_HTTP_HEADERS_SENT,
+    // ואפס תגובות = בקשה תלויה עד ה-timeout של Caddy.
+    const output = `${stdout ?? ""}${stderr ?? ""}`.trim();
 
-    log(`am start stderr: ${stderr}`);
-
-    if (err || stderr) {
-      if (err?.message) log(`am start failed: ${err?.message}`);
-      if (err?.code) log(`am start exit code: ${err.code}`);
-      if (stderr) log(`am start stderr: ${stderr}`);
-
-      json(res, 500, { ok: false, error: err?.message || stderr });
+    if (err) {
+      log(`am start failed (code ${err.code}): ${err.message}`);
+      if (output) log(`am start output: ${output}`);
+      json(res, 500, { ok: false, error: err.message, output });
+      return;
     }
 
     if (stdout.includes(FULLY_STARTING_MSG)) {
-      log(`am start stdout: ${stdout}`);
       log("Fully Kiosk is starting...");
       json(res, 200, { ok: true });
+      return;
     }
-  })
+
+    // am הצליח אבל לא דיווח על הפעלה — למשל component שגוי
+    log(`am start: פלט לא צפוי: ${output}`);
+    json(res, 502, { ok: false, error: "am did not report Fully starting", output });
+  });
 }
 
 createServer(async (req, res) => {
