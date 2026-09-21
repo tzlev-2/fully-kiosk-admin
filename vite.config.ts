@@ -36,7 +36,7 @@ const pwaOptions: Partial<SvelteKitPWAOptions> = {
 		spa: true
 	},
 	devOptions: {
-		enabled: true
+		enabled: process.env.VITEST !== 'true'
 	}
 };
 
