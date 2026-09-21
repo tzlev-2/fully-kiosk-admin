@@ -98,7 +98,9 @@ export class KioskDevice {
 
 	private async triggerKioskRestart(): Promise<boolean> {
 		try {
-			const res = await fetch(`${this.proxyBaseUrl}/restart`, { signal: AbortSignal.timeout(5000) });
+			const res = await fetch(`${this.proxyBaseUrl}/restart`, {
+				signal: AbortSignal.timeout(5000)
+			});
 			const data = await res.json();
 			return data.ok === true;
 		} catch {
@@ -412,10 +414,10 @@ export class KioskDevice {
 					label: appInfo.label,
 					icon: appInfo.icon
 				};
-				this.recentApps = [recent, ...this.recentApps.filter((a) => a.package !== packageName)].slice(
-					0,
-					5
-				);
+				this.recentApps = [
+					recent,
+					...this.recentApps.filter((a) => a.package !== packageName)
+				].slice(0, 5);
 				this.hooks.persist();
 			}
 			return true;

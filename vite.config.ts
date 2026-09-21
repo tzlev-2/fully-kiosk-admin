@@ -41,12 +41,7 @@ const pwaOptions: Partial<SvelteKitPWAOptions> = {
 };
 
 export default defineConfig({
-	plugins: [
-		tailwindcss(),
-		sveltekit(),
-		SvelteKitPWA(pwaOptions),
-		devtoolsJson()
-	],
+	plugins: [tailwindcss(), sveltekit(), SvelteKitPWA(pwaOptions), devtoolsJson()],
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
