@@ -26,7 +26,9 @@
 {:else if !device.deviceInfo}
 	<DeviceForm {device} onSuccess={onConnected} />
 {:else}
-	<DeviceContext {device}>
-		{@render children()}
-	</DeviceContext>
+	{#key device.key}
+		<DeviceContext {device}>
+			{@render children()}
+		</DeviceContext>
+	{/key}
 {/if}
