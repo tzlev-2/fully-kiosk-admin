@@ -4,10 +4,12 @@
 	import { page } from '$app/state';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
-	import { KIOSK_TEXTS, CONNECTION_STATUS_TEXT } from '$lib/texts';
-	import { ctrl } from '$lib/kioskController.svelte';
-	import LoginCard from './_components/LoginCard.svelte';
+	import { KIOSK_TEXTS } from '$lib/texts';
+	import { kiosk } from '$lib/kiosk-store.svelte';
+	import DeviceSwitcher from '$lib/components/DeviceSwitcher.svelte';
+	import DockTabLink from '$lib/components/DockTabLink.svelte';
 
 	const webManifest = pwaInfo ? pwaInfo.webManifest.linkTag : '';
 
@@ -20,11 +22,57 @@
 		document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
 	}
 
-	const tabs = [
-		{ label: KIOSK_TEXTS.TAB_DEVICE, emoji: '📟', href: '/device' },
-		{ label: KIOSK_TEXTS.TAB_NAV, emoji: '🌐', href: '/nav' },
-		{ label: KIOSK_TEXTS.TAB_SCREEN, emoji: '📷', href: '/screen' }
-	];
+	const sidebarDevice = $derived.by(() => {
+		const match = page.url.pathname.match(/\/d\/([^/]+)/);
+		if (match) return kiosk.byRouteId(match[1]);
+		if (kiosk.lastDeviceKey) {
+			return kiosk.devices.find((d) => d.key === kiosk.lastDeviceKey) ?? null;
+		}
+		return kiosk.devices[0] ?? null;
+	});
+
+	type DockTab =
+		| { label: string; emoji: string; kind: 'screen' | 'devices' }
+		| { label: string; emoji: string; kind: 'device' | 'nav'; id: string };
+
+	const dockTabs = $derived.by((): DockTab[] => {
+		const id = sidebarDevice ? kiosk.routeId(sidebarDevice) : null;
+		if (!id) {
+			return [
+				{ label: KIOSK_TEXTS.TAB_SCREEN, emoji: '📷', kind: 'screen' },
+				{ label: KIOSK_TEXTS.TAB_DEVICES, emoji: '📋', kind: 'devices' }
+			];
+		}
+		return [
+			{ label: KIOSK_TEXTS.TAB_DEVICE, emoji: '📟', kind: 'device', id },
+			{ label: KIOSK_TEXTS.TAB_NAV, emoji: '🌐', kind: 'nav', id },
+			{ label: KIOSK_TEXTS.TAB_SCREEN, emoji: '📷', kind: 'screen' },
+			{ label: KIOSK_TEXTS.TAB_DEVICES, emoji: '📋', kind: 'devices' }
+		];
+	});
+
+	function tabHref(tab: DockTab): string {
+		switch (tab.kind) {
+			case 'screen':
+				return resolve('/screen');
+			case 'devices':
+				return resolve('/devices');
+			case 'nav':
+				return resolve('/d/[id]/nav', { id: tab.id });
+			case 'device':
+				return resolve('/d/[id]', { id: tab.id });
+		}
+	}
+
+	function isTabActive(tab: DockTab, pathname: string): boolean {
+		const href = tabHref(tab);
+		if (tab.kind === 'devices') return pathname === resolve('/devices');
+		if (tab.kind === 'screen') {
+			return pathname === resolve('/screen') || pathname.endsWith('/screen');
+		}
+		if (tab.kind === 'nav') return pathname.endsWith('/nav');
+		return pathname === href || pathname === `${href}/`;
+	}
 
 	onMount(async () => {
 		if (pwaInfo) {
@@ -32,20 +80,32 @@
 			registerSW({ immediate: true });
 		}
 
+		kiosk.load();
+
 		const params = new URLSearchParams(location.search);
-		const fromQr = ctrl.loadFromUrlParam(params);
-		if (fromQr) {
+		const adopted = kiosk.adoptFromQr(params);
+		if (adopted) {
 			history.replaceState(null, '', location.pathname);
-			await ctrl.connect();
+			kiosk.rememberLast(adopted.key);
+			const survivor = await kiosk.connectDevice(adopted);
+			await goto(resolve('/d/[id]', { id: kiosk.routeId(survivor) }), { replaceState: true });
+			void kiosk.connectAll();
 		} else {
-			ctrl.loadFromStorage();
-			if (ctrl.baseUrl) {
-				await ctrl.connect();
-			}
+			void kiosk.connectAll();
 		}
+
 		initialized = true;
-		if (page.url.pathname === '/') {
-			await goto('/device', { replaceState: true });
+
+		const path = page.url.pathname;
+		if (path === '/' || path === resolve('/')) {
+			const last =
+				(kiosk.lastDeviceKey && kiosk.devices.find((d) => d.key === kiosk.lastDeviceKey)) ||
+				kiosk.devices[0];
+			if (last) {
+				await goto(resolve('/d/[id]', { id: kiosk.routeId(last) }), { replaceState: true });
+			} else {
+				await goto(resolve('/devices'), { replaceState: true });
+			}
 		}
 	});
 </script>
@@ -54,6 +114,7 @@
 	<link rel="icon" href="/favicon.ico" sizes="any" />
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 	<link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html webManifest}
 	<meta name="theme-color" content="#ffffff" />
 	<title>{KIOSK_TEXTS.PAGE_TITLE}</title>
@@ -69,18 +130,7 @@
 {#if !initialized}
 	<div class="flex min-h-screen flex-col items-center justify-center gap-4 bg-base-200">
 		<span class="loading loading-lg loading-spinner text-primary"></span>
-		{#if CONNECTION_STATUS_TEXT[ctrl.connectionStatus]}
-			<p
-				class="text-sm text-base-content/60"
-				class:text-error={ctrl.connectionStatus.startsWith('error')}
-				class:font-semibold={ctrl.connectionStatus.startsWith('error')}
-			>
-				{CONNECTION_STATUS_TEXT[ctrl.connectionStatus]}
-			</p>
-		{/if}
 	</div>
-{:else if !ctrl.deviceInfo}
-	<LoginCard onConnect={() => ctrl.connect()} />
 {:else}
 	<div class="drawer drawer-end lg:drawer-open">
 		<input id="nav-drawer" type="checkbox" class="drawer-toggle" />
@@ -91,13 +141,13 @@
 				dir="rtl"
 			>
 				<span class="flex-1 truncate text-base font-black">🖥️ {KIOSK_TEXTS.PAGE_TITLE}</span>
+				<DeviceSwitcher />
 				<button
 					class="btn btn-circle btn-ghost btn-sm"
 					onclick={toggleTheme}
-					title="החלף ערכת נושא"
+					title={KIOSK_TEXTS.THEME_TOGGLE}
 				>
 					{#if isDark}
-						<!-- שמש — עבור מצב כהה, לחיצה חוזרת לבהיר -->
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-5 w-5"
@@ -113,7 +163,6 @@
 							/>
 						</svg>
 					{:else}
-						<!-- ירח — עבור מצב בהיר, לחיצה עוברת לכהה -->
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-5 w-5"
@@ -130,22 +179,24 @@
 						</svg>
 					{/if}
 				</button>
-				<button
-					class="btn btn-outline btn-sm btn-error lg:hidden"
-					onclick={() => ctrl.disconnect()}
-				>
-					{KIOSK_TEXTS.DISCONNECT}
-				</button>
+				{#if sidebarDevice}
+					<button
+						class="btn btn-outline btn-sm btn-error lg:hidden"
+						onclick={() => sidebarDevice.disconnect()}
+					>
+						{KIOSK_TEXTS.DISCONNECT}
+					</button>
+				{/if}
 			</nav>
 
-			{#if ctrl.feedback}
+			{#if kiosk.feedback}
 				<div
 					class="fixed bottom-24 left-1/2 z-50 alert w-auto max-w-xs -translate-x-1/2 animate-fade-in-up text-sm font-semibold shadow-lg lg:bottom-6"
-					class:alert-success={ctrl.feedback.type === 'success'}
-					class:alert-error={ctrl.feedback.type === 'error'}
+					class:alert-success={kiosk.feedback.type === 'success'}
+					class:alert-error={kiosk.feedback.type === 'error'}
 					role="alert"
 				>
-					{ctrl.feedback.message}
+					{kiosk.feedback.message}
 				</div>
 			{/if}
 
@@ -157,11 +208,8 @@
 			</main>
 
 			<div class="dock lg:hidden" dir="rtl">
-				{#each tabs as tab (tab.href)}
-					<a href={tab.href} class:dock-active={page.url.pathname === tab.href}>
-						<span class="text-xl leading-none">{tab.emoji}</span>
-						<span class="dock-label">{tab.label}</span>
-					</a>
+				{#each dockTabs as tab (tab.kind + ('id' in tab ? tab.id : ''))}
+					<DockTabLink {tab} active={isTabActive(tab, page.url.pathname)} />
 				{/each}
 			</div>
 		</div>
@@ -174,27 +222,33 @@
 			>
 				<div class="border-b border-base-content/10 p-4">
 					<p class="text-sm font-black">🖥️ {KIOSK_TEXTS.PAGE_TITLE}</p>
-					<p class="mt-0.5 truncate text-xs text-base-content/50">{ctrl.deviceInfo.deviceName}</p>
+					<p class="mt-0.5 truncate text-xs text-base-content/50">
+						{sidebarDevice?.name ?? KIOSK_TEXTS.NO_DEVICES}
+					</p>
+				</div>
+				<div class="border-b border-base-content/10 p-3">
+					<DeviceSwitcher />
 				</div>
 				<nav class="flex flex-1 flex-col gap-1 p-3">
-					{#each tabs as tab (tab.href)}
-						<a
-							href={tab.href}
+					{#each dockTabs as tab (tab.kind + ('id' in tab ? tab.id : ''))}
+						<DockTabLink
+							{tab}
+							variant="sidebar"
+							active={isTabActive(tab, page.url.pathname)}
 							class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors"
-							class:bg-primary={page.url.pathname === tab.href}
-							class:text-primary-content={page.url.pathname === tab.href}
-							class:hover:bg-base-300={page.url.pathname !== tab.href}
-						>
-							<span class="text-lg">{tab.emoji}</span>
-							{tab.label}
-						</a>
+						/>
 					{/each}
 				</nav>
-				<div class="border-t border-base-content/10 p-3">
-					<button class="btn w-full btn-outline btn-sm btn-error" onclick={() => ctrl.disconnect()}>
-						{KIOSK_TEXTS.DISCONNECT}
-					</button>
-				</div>
+				{#if sidebarDevice}
+					<div class="border-t border-base-content/10 p-3">
+						<button
+							class="btn w-full btn-outline btn-sm btn-error"
+							onclick={() => sidebarDevice.disconnect()}
+						>
+							{KIOSK_TEXTS.DISCONNECT}
+						</button>
+					</div>
+				{/if}
 			</aside>
 		</div>
 	</div>

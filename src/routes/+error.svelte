@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { base } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import { KIOSK_TEXTS } from '$lib/texts';
 
 	const is404 = $derived(page.status === 404);
@@ -16,7 +16,7 @@
 			<p class="text-8xl font-black opacity-20">{page.status}</p>
 			<h1 class="mt-4 text-3xl font-black">{title}</h1>
 			<p class="mt-3 text-base-content/60">{description}</p>
-			<a href={`${base}/device`} class="btn btn-primary mt-8 gap-2">
+			<a href={resolve('/devices')} class="btn mt-8 gap-2 btn-primary">
 				<span class="text-lg">🏠</span>
 				{KIOSK_TEXTS.ERROR_PAGE_HOME}
 			</a>

@@ -2,7 +2,11 @@
 	import type { AppListItem } from '$lib/fullyKioskTypes';
 	import { KIOSK_TEXTS } from '$lib/texts';
 
-	let { apps, value = $bindable(''), disabled = false }: {
+	let {
+		apps,
+		value = $bindable(''),
+		disabled = false
+	}: {
 		apps: AppListItem[];
 		value: string;
 		disabled?: boolean;
@@ -12,14 +16,15 @@
 	let search = $state('');
 	const filtered = $derived(
 		search.trim()
-			? apps.filter(a =>
-					a.label.toLowerCase().includes(search.toLowerCase()) ||
-					a.package.toLowerCase().includes(search.toLowerCase())
-			  )
+			? apps.filter(
+					(a) =>
+						a.label.toLowerCase().includes(search.toLowerCase()) ||
+						a.package.toLowerCase().includes(search.toLowerCase())
+				)
 			: apps
 	);
 
-	const selected = $derived(apps.find(a => a.package === value) ?? null);
+	const selected = $derived(apps.find((a) => a.package === value) ?? null);
 
 	function select(pkg: string) {
 		value = pkg;
@@ -50,13 +55,18 @@
 		<div
 			class="backdrop"
 			role="presentation"
-			onclick={() => { open = false; search = ''; }}
+			onclick={() => {
+				open = false;
+				search = '';
+			}}
 		></div>
 		<div class="panel">
 			<input
 				type="text"
 				bind:value={search}
-				{@attach (node) => { node.focus(); }}
+				{@attach (node) => {
+					node.focus();
+				}}
 				placeholder={KIOSK_TEXTS.APP_SEARCH_PLACEHOLDER}
 				class="search"
 				dir="rtl"

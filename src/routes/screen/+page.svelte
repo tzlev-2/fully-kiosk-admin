@@ -1,11 +1,17 @@
 <script lang="ts">
-	import { KIOSK_TEXTS } from '$lib/texts';
-	import ScreenTab from '../_components/ScreenTab.svelte';
-</script>
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+	import { kiosk } from '$lib/kiosk-store.svelte';
 
-<div class="card bg-base-100/80 shadow-sm border border-base-content/10 backdrop-blur lg:col-span-2">
-	<div class="card-body gap-4">
-		<h2 class="card-title text-base">📷 {KIOSK_TEXTS.TAB_SCREEN}</h2>
-		<ScreenTab />
-	</div>
-</div>
+	onMount(() => {
+		const last =
+			(kiosk.lastDeviceKey && kiosk.devices.find((d) => d.key === kiosk.lastDeviceKey)) ||
+			kiosk.devices[0];
+		if (last) {
+			goto(resolve('/d/[id]/screen', { id: kiosk.routeId(last) }), { replaceState: true });
+		} else {
+			goto(resolve('/devices'), { replaceState: true });
+		}
+	});
+</script>

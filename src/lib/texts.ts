@@ -20,7 +20,7 @@ export const CONNECTION_STATUS_TEXT: Record<ConnectionStatus, string> = {
 	waiting: 'ממתין לאתחול המכשיר...',
 	connected: '',
 	'error-proxy': '⚠️ הפרוקסי אינו פעיל. הפעל את Caddy.',
-	'error-device': '⚠️ הקיוסק אינו זמין. האם האפליקציה פועלת?',
+	'error-device': '⚠️ הקיוסק אינו זמין. האם האפליקציה פועלת?'
 };
 
 export const KIOSK_TEXTS = {
@@ -88,6 +88,22 @@ export const KIOSK_TEXTS = {
 	TAB_DEVICE: 'מכשיר',
 	TAB_NAV: 'ניווט',
 	TAB_SCREEN: 'מסך חי',
+	TAB_DEVICES: 'מכשירים',
+
+	DEVICES_TITLE: 'מכשירים',
+	ADD_DEVICE: 'הוסף מכשיר',
+	NO_DEVICES: 'עדיין לא הוספת מכשירים.',
+	UNKNOWN_DEVICE: 'מכשיר לא מוכר',
+	DEVICE_OFFLINE: 'המכשיר אינו מחובר',
+	RECONNECT: 'התחבר מחדש',
+	DEVICE_NAME_LABEL: 'שם מכשיר',
+
+	SCREEN_SECTION: 'מסך',
+	CRITICAL_ACTIONS: 'פעולות קריטיות',
+	REMOVE_WEBSITE: 'הסר',
+	NO_WEBSITES_YET: 'עדיין לא הוספת אתרים. הוסף אתר למטה.',
+	THEME_TOGGLE: 'החלף ערכת נושא',
+	SCREENSHOT_ALT: 'צילום מסך',
 
 	// מצב קיוסק — הגדרות (kioskMode)
 	KIOSK_MODE_LABEL: 'מצב קיוסק',
@@ -137,5 +153,5 @@ export const KIOSK_TEXTS = {
 	ERROR_PAGE_DESCRIPTION: 'הדף שחיפשת לא קיים או שהוסר.',
 	ERROR_PAGE_HOME: 'חזרה לדף הראשי',
 	ERROR_GENERIC_TITLE: 'שגיאה',
-	ERROR_GENERIC_DESCRIPTION: 'משהו השתבש. נסה שוב.',
+	ERROR_GENERIC_DESCRIPTION: 'משהו השתבש. נסה שוב.'
 } as const;
