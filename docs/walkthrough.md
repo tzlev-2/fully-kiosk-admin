@@ -46,7 +46,7 @@
 #### מעקפים ופתרונות
 
 - **`vite-plugin-pwa` ו-`workbox-window` כ-devDependencies ישירים**: Bun שומר transitive deps ב-`.bun/` ולא ב-`node_modules/` root, מה שגורם ל-TypeScript ו-Rollup לא למצוא אותם
-- **`kit.spa: true` ב-PWA options**: בלי זה, adapter-static מייצר את index.html *אחרי* יצירת ה-SW, אז הוא לא נכנס ל-precache
+- **`kit.spa: true` ב-PWA options**: בלי זה, adapter-static מייצר את index.html _אחרי_ יצירת ה-SW, אז הוא לא נכנס ל-precache
 
 ## 2026-09-22 — slice s2-devices (commit 1)
 
