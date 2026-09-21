@@ -47,3 +47,16 @@
 
 - **`vite-plugin-pwa` ו-`workbox-window` כ-devDependencies ישירים**: Bun שומר transitive deps ב-`.bun/` ולא ב-`node_modules/` root, מה שגורם ל-TypeScript ו-Rollup לא למצוא אותם
 - **`kit.spa: true` ב-PWA options**: בלי זה, adapter-static מייצר את index.html *אחרי* יצירת ה-SW, אז הוא לא נכנס ל-precache
+
+## 2026-09-22 — slice s2-devices (commit 1)
+
+### bulk, rename ומתודות מוחלטות על KioskDevice
+
+- `name` על `KioskDevice` הועבר ל-`$state` עם `renameDevice` ו-`bulk` ב-`KioskStore`
+- נוספו `screenOn` / `screenOff` / `lock` / `unlock`; פעולות ללא `deviceInfo` חוזרות `false` בלי `fetch`
+- `setVolume` מעדכן `volumeLevel` רק אחרי הצלחת הקליינט
+
+#### בדיקות
+
+- `bun run check` — ירוק
+- `bun run test:unit -- --run` — 20 טסטים, כולל bulk/rename/removeDevice

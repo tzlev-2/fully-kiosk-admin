@@ -161,6 +161,30 @@ export class KioskStore {
 		this.persist();
 	}
 
+	renameDevice(key: string, name: string): void {
+		const device = this.devices.find((d) => d.key === key);
+		if (!device) return;
+		device.name = name;
+		this.persist();
+	}
+
+	async bulk(
+		run: (device: KioskDevice) => Promise<boolean>
+	): Promise<{ ok: number; total: number }> {
+		const total = this.devices.length;
+		const results = await Promise.all(
+			this.devices.map(async (device) => {
+				try {
+					return await run(device);
+				} catch {
+					return false;
+				}
+			})
+		);
+		const ok = results.filter(Boolean).length;
+		return { ok, total };
+	}
+
 	rememberLast(key: string): void {
 		this.lastDeviceKey = key;
 		this.persist();

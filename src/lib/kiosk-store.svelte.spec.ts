@@ -220,4 +220,97 @@ describe('KioskStore', () => {
 		expect(okDevice.deviceId).toBe('good-id');
 		expect(badDevice.connectionStatus).toBe('error-proxy');
 	});
+
+	it('bulk screenOn counts only connected devices and skips fetch for offline', async () => {
+		const online = kiosk.addDevice({ baseUrl: 'http://online:2323', password: 'pw' });
+		const offline = kiosk.addDevice({ baseUrl: 'http://offline:2323', password: 'pw' });
+		online.deviceInfo = mockDeviceInfo('online-id');
+
+		const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ status: 'OK' }) }));
+		vi.stubGlobal('fetch', fetchMock);
+
+		const result = await kiosk.bulk((d) => d.screenOn());
+
+		expect(result).toEqual({ ok: 1, total: 2 });
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		const callUrl = String((fetchMock.mock.calls as unknown[][])[0][0]);
+		expect(callUrl).toContain('online:2323');
+	});
+
+	it('navigateToUrl, restartApp, and setVolume skip fetch without deviceInfo', async () => {
+		const offline = kiosk.addDevice({ baseUrl: 'http://offline:2323', password: 'pw' });
+		const volumeBefore = offline.volumeLevel;
+
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+
+		expect(await offline.navigateToUrl('https://example.com')).toBe(false);
+		expect(await offline.restartApp()).toBe(false);
+		expect(await offline.setVolume(42)).toBe(false);
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(offline.volumeLevel).toBe(volumeBefore);
+	});
+
+	it('bulk treats thrown run as failure and still resolves', async () => {
+		kiosk.addDevice({ baseUrl: 'http://a:2323', password: 'pw' });
+		kiosk.addDevice({ baseUrl: 'http://b:2323', password: 'pw' });
+
+		const result = await kiosk.bulk(async () => {
+			throw new Error('boom');
+		});
+
+		expect(result).toEqual({ ok: 0, total: 2 });
+	});
+
+	it('renameDevice persists name and keeps routeId', () => {
+		const device = kiosk.addDevice({
+			baseUrl: 'http://rename:2323',
+			password: 'pw',
+			name: 'Before'
+		});
+		const routeBefore = kiosk.routeId(device);
+
+		kiosk.renameDevice(device.key, 'After');
+		expect(device.name).toBe('After');
+
+		kiosk.devices = [];
+		kiosk.lastDeviceKey = null;
+		kiosk.load();
+
+		expect(kiosk.devices).toHaveLength(1);
+		expect(kiosk.devices[0].name).toBe('After');
+		expect(kiosk.routeId(kiosk.devices[0])).toBe(routeBefore);
+	});
+
+	it('removeDevice moves lastDeviceKey to survivor when deleting last active device', () => {
+		const first = kiosk.addDevice({ baseUrl: 'http://first:2323', password: 'pw' });
+		const second = kiosk.addDevice({ baseUrl: 'http://second:2323', password: 'pw' });
+		kiosk.lastDeviceKey = second.key;
+
+		kiosk.removeDevice(second.key);
+
+		expect(kiosk.lastDeviceKey).toBe(first.key);
+		expect(kiosk.devices).toHaveLength(1);
+	});
+
+	it('removeDevice leaves lastDeviceKey when deleting a non-active device', () => {
+		const first = kiosk.addDevice({ baseUrl: 'http://first:2323', password: 'pw' });
+		const second = kiosk.addDevice({ baseUrl: 'http://second:2323', password: 'pw' });
+		kiosk.lastDeviceKey = second.key;
+
+		kiosk.removeDevice(first.key);
+
+		expect(kiosk.lastDeviceKey).toBe(second.key);
+	});
+
+	it('removeDevice clears lastDeviceKey when deleting the only device', () => {
+		const only = kiosk.addDevice({ baseUrl: 'http://only:2323', password: 'pw' });
+		kiosk.lastDeviceKey = only.key;
+
+		kiosk.removeDevice(only.key);
+
+		expect(kiosk.lastDeviceKey).toBeNull();
+		expect(kiosk.devices).toHaveLength(0);
+	});
 });

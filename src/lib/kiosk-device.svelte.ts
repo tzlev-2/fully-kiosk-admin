@@ -23,7 +23,7 @@ type DeviceHooks = {
 export class KioskDevice {
 	readonly key: string;
 	deviceId: string | null;
-	name: string;
+	name = $state('');
 	baseUrl: string;
 	password: string;
 	formerKeys: string[];
@@ -271,11 +271,12 @@ export class KioskDevice {
 	}
 
 	async setVolume(level: number): Promise<boolean> {
+		if (!this.deviceInfo) return false;
 		const clamped = Math.max(0, Math.min(100, level));
-		this.volumeLevel = clamped;
-		this.isMuted = clamped === 0;
 		try {
 			await this.getClient().setAudioVolume(clamped);
+			this.volumeLevel = clamped;
+			this.isMuted = clamped === 0;
 			return true;
 		} catch {
 			return false;
@@ -300,6 +301,7 @@ export class KioskDevice {
 	}
 
 	async restartApp(): Promise<boolean> {
+		if (!this.deviceInfo) return false;
 		this.isLoading = true;
 		try {
 			await this.getClient().restartApp();
@@ -333,6 +335,7 @@ export class KioskDevice {
 	}
 
 	async navigateToUrl(url: string): Promise<boolean> {
+		if (!this.deviceInfo) return false;
 		this.isLoading = true;
 		try {
 			await this.getClient().loadUrl(url);
@@ -342,6 +345,70 @@ export class KioskDevice {
 		} finally {
 			this.isLoading = false;
 		}
+	}
+
+	async screenOn(): Promise<boolean> {
+		if (!this.deviceInfo) return false;
+		this.isLoading = true;
+		let ok = false;
+		try {
+			await this.getClient().screenOn();
+			this.deviceInfo.screenOn = true;
+			ok = true;
+		} catch {
+			ok = false;
+		} finally {
+			this.isLoading = false;
+		}
+		return ok;
+	}
+
+	async screenOff(): Promise<boolean> {
+		if (!this.deviceInfo) return false;
+		this.isLoading = true;
+		let ok = false;
+		try {
+			await this.getClient().screenOff();
+			this.deviceInfo.screenOn = false;
+			ok = true;
+		} catch {
+			ok = false;
+		} finally {
+			this.isLoading = false;
+		}
+		return ok;
+	}
+
+	async lock(): Promise<boolean> {
+		if (!this.deviceInfo) return false;
+		this.isLoading = true;
+		let ok = false;
+		try {
+			await this.getClient().lockKiosk();
+			this.deviceInfo.kioskLocked = true;
+			ok = true;
+		} catch {
+			ok = false;
+		} finally {
+			this.isLoading = false;
+		}
+		return ok;
+	}
+
+	async unlock(): Promise<boolean> {
+		if (!this.deviceInfo) return false;
+		this.isLoading = true;
+		let ok = false;
+		try {
+			await this.getClient().unlockKiosk();
+			this.deviceInfo.kioskLocked = false;
+			ok = true;
+		} catch {
+			ok = false;
+		} finally {
+			this.isLoading = false;
+		}
+		return ok;
 	}
 
 	async toggleScreen(): Promise<boolean> {
