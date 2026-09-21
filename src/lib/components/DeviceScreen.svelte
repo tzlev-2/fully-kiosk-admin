@@ -29,6 +29,8 @@
 >
 	<div class="card-body gap-4">
 		{#if href}
+			<!-- href מגיע מ-resolve() בקורה -->
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 			<a {href} class="link font-semibold link-hover">{device.name}</a>
 		{:else}
 			<h2 class="card-title text-base">📷 {KIOSK_TEXTS.TAB_SCREEN}</h2>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { DeviceInfoResponse } from '$lib/fullyKioskTypes';
+	import type { DeviceInfoResponse } from '$lib/fully-kiosk-types';
 	import { KIOSK_TEXTS } from '$lib/texts';
 	import { splitIp4 } from './ip4';
 

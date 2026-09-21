@@ -1,5 +1,24 @@
 # יומן פיתוח — ניהול קיוסק פולי (kiosk-admin)
 
+## 2026-09-22 — slice s3-screen-grid
+
+### גריד מסך חי, קצב סדרתי, דארק בסלקט, kebab
+
+- `/screen` מציג גריד של מכשירים מחוברים עם מתזמן צילום סדרתי (`captureGapMs`, `runCaptureRound`)
+- `DeviceScreen` משותף לגריד ול-`/d/[id]/screen`; לולאת live view נשארת בעמוד הבודד בלבד
+- `NONE_CONNECTED` כשיש רשומות בלי `deviceInfo`
+- `AppDropdown`: צבעי daisyUI במקום hex קשיחים
+- `fullyKioskClient.ts` / `fullyKioskTypes.ts` → `fully-kiosk-client.ts` / `fully-kiosk-types.ts`
+- טסט `BulkActions.svelte.spec.ts` לחיווט `SCREEN_ALL_ON`
+- השתקת `state_referenced_locally` ב-`DeviceContext` (מכוון, עם `{#key device.key}`)
+
+#### בדיקות
+
+- `bun run check` — 0 שגיאות, 3 אזהרות `DeviceForm` בלבד
+- `bun run test:unit -- --run` — 24 טסטים
+- `bunx eslint .` — ירוק
+- `prettier --check` על קבצי הסלייס — ירוק
+
 ## 2026-03-11 19:30
 
 ### שדרוג ארכיטקטורה: PWA אופליין, SPA mode, וארגון קוד

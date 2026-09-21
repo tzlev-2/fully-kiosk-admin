@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AppListItem } from '$lib/fullyKioskTypes';
+	import type { AppListItem } from '$lib/fully-kiosk-types';
 	import { KIOSK_TEXTS } from '$lib/texts';
 
 	let {
@@ -106,7 +106,8 @@
 		padding: 0.55rem 0.75rem;
 		border: 1px solid #cbd5e1;
 		border-radius: 8px;
-		background: #f8fafc;
+		background: var(--color-base-100);
+		color: var(--color-base-content);
 		font-size: 0.9rem;
 		font-family: inherit;
 		cursor: pointer;
@@ -159,7 +160,7 @@
 		right: 0;
 		left: 0;
 		z-index: 11;
-		background: white;
+		background: var(--color-base-100);
 		border: 1px solid #e2e8f0;
 		border-radius: 10px;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
@@ -171,11 +172,11 @@
 	.search {
 		padding: 0.5rem 0.75rem;
 		border: none;
-		border-bottom: 1px solid #f1f5f9;
+		border-bottom: 1px solid var(--color-base-200);
 		font-size: 0.9rem;
 		font-family: inherit;
 		outline: none;
-		background: #fafafa;
+		background: var(--color-base-100);
 	}
 
 	.list {
@@ -199,12 +200,12 @@
 	}
 
 	.item:hover {
-		background: #f1f5f9;
+		background: var(--color-base-200);
 	}
 
 	.item.active {
-		background: #ede9fe;
-		color: #4f46e5;
+		background: var(--color-primary);
+		color: var(--color-primary-content);
 		font-weight: 600;
 	}
 

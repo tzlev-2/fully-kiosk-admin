@@ -24,8 +24,9 @@
 			if (prev) URL.revokeObjectURL(prev);
 			screenshots = { ...screenshots, [device.key]: url };
 		}
-		const { [device.key]: _, ...rest } = capturingKeys;
-		capturingKeys = rest;
+		const next = { ...capturingKeys };
+		delete next[device.key];
+		capturingKeys = next;
 	}
 
 	async function schedulerLoop(): Promise<void> {

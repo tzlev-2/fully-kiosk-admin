@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DeviceInfoResponse } from './fullyKioskTypes';
+import type { DeviceInfoResponse } from './fully-kiosk-types';
 import { kiosk } from './kiosk-store.svelte';
 
 function mockDeviceInfo(deviceId: string): DeviceInfoResponse {

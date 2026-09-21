@@ -1,4 +1,4 @@
-import type { AppListItem, BaseResponse, DeviceInfoResponse } from './fullyKioskTypes';
+import type { AppListItem, BaseResponse, DeviceInfoResponse } from './fully-kiosk-types';
 // BaseResponse נדרש עבור lockKiosk/unlockKiosk/loadUrl שמחזירים status
 
 /**
@@ -22,7 +22,6 @@ export class FullyKioskClient {
 	/**
 	 * שולח פקודה ל-Fully Kiosk REST API
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	private async request<T>(
 		cmd: string,
 		params: Record<string, string | number | boolean> = {}

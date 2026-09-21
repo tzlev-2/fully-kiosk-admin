@@ -1,6 +1,6 @@
 import { render } from 'vitest-browser-svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DeviceInfoResponse } from '$lib/fullyKioskTypes';
+import type { DeviceInfoResponse } from '$lib/fully-kiosk-types';
 import { kiosk } from '$lib/kiosk-store.svelte';
 import { KIOSK_TEXTS } from '$lib/texts';
 import BulkActions from './BulkActions.svelte';

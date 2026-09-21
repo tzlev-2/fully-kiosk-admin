@@ -5,7 +5,10 @@
 
 	let { device, children }: { device: KioskDevice; children: Snippet } = $props();
 
+	// ה-{#key device.key} בלייאוט מבטיח מופע לכל מכשיר
+	// svelte-ignore state_referenced_locally
 	setContext('kiosk-device', device);
+	// svelte-ignore state_referenced_locally
 	kiosk.rememberLast(device.key);
 </script>
 

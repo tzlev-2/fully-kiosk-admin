@@ -1,7 +1,7 @@
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DeviceInfoResponse } from '$lib/fullyKioskTypes';
+import type { DeviceInfoResponse } from '$lib/fully-kiosk-types';
 import { kiosk } from '$lib/kiosk-store.svelte';
 import { page } from './page-stub.svelte';
 import Harness from './device-route-harness.svelte';

@@ -2,9 +2,9 @@
 // מבוסס על התשובה האמיתית של getDeviceInfo
 
 export interface AppListItem {
-	icon: string;        // Base64 של האייקון
-	label: string;       // שם האפליקציה
-	package: string;     // Package Name
+	icon: string; // Base64 של האייקון
+	label: string; // שם האפליקציה
+	package: string; // Package Name
 	version: string;
 	versionCode: number;
 }

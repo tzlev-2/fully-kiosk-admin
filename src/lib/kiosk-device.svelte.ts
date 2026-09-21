@@ -1,6 +1,6 @@
 import { SvelteURL } from 'svelte/reactivity';
-import { FullyKioskClient } from './fullyKioskClient';
-import type { AppListItem, DeviceInfoResponse, RecentApp } from './fullyKioskTypes';
+import { FullyKioskClient } from './fully-kiosk-client';
+import type { AppListItem, DeviceInfoResponse, RecentApp } from './fully-kiosk-types';
 import type { ConnectionStatus } from './texts';
 
 export const KIOSK_PROXY_PORT = import.meta.env.VITE_KIOSK_PROXY_PORT || 8765;
