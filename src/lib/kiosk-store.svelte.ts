@@ -239,7 +239,7 @@ export class KioskStore {
 				existing.formerKeys.push(device.key);
 			}
 			if (device.deviceInfo) {
-				existing.deviceInfo = device.deviceInfo;
+				existing.applyDeviceInfo(device.deviceInfo);
 			}
 			if (this.lastDeviceKey === device.key) {
 				this.lastDeviceKey = existing.key;

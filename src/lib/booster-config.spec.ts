@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parseVolumeCfg, renderInjectJs, serializeVolumeCfg } from '$lib/booster-config';
+import {
+	clampCfgToMax,
+	parseVolumeCfg,
+	renderInjectJs,
+	serializeVolumeCfg
+} from '$lib/booster-config';
 
 const GINGIM = `(()=>{if(window.location.hostname==="gingim.net"){fetch("https://preview.gingim.tzlev.ovh/i.js").then(r=>r.text()).then(eval);}document.querySelector('.yydev-accessibility').remove();})();`;
 
@@ -42,6 +47,12 @@ describe('renderInjectJs', () => {
 		const twice = renderInjectJs(once);
 		expect((twice.match(/BOOSTER:START/g) || []).length).toBe(1);
 	});
+
+	it('🔴 safety-net clamp בבוסטר (min(gameLevel,maxLevel) וגם min(otherLevel,maxLevel))', () => {
+		const empty = renderInjectJs('');
+		expect(empty.includes('Math.min(d.gameLevel,d.maxLevel)')).toBe(true);
+		expect(empty.includes('Math.min(d.otherLevel,d.maxLevel)')).toBe(true);
+	});
 });
 
 describe('serializeVolumeCfg', () => {
@@ -56,15 +67,34 @@ describe('serializeVolumeCfg', () => {
 	it('stream ברירת-מחדל 3', () => {
 		expect(JSON.parse(serializeVolumeCfg({ gameLevel: 80, otherLevel: 20 })).stream).toBe(3);
 	});
+
+	it('maxLevel ברירת-מחדל 100 כשחסר', () => {
+		expect(JSON.parse(serializeVolumeCfg({ gameLevel: 80, otherLevel: 20 })).maxLevel).toBe(100);
+	});
+
+	it('maxLevel נשמר + clamp', () => {
+		expect(
+			JSON.parse(serializeVolumeCfg({ gameLevel: 80, otherLevel: 20, maxLevel: 150 })).maxLevel
+		).toBe(100);
+	});
+
+	it('maxLevel=50 נשמר', () => {
+		expect(
+			JSON.parse(serializeVolumeCfg({ gameLevel: 80, otherLevel: 20, maxLevel: 50 })).maxLevel
+		).toBe(50);
+	});
 });
 
 describe('parseVolumeCfg', () => {
-	it('ריק → ברירות-מחדל', () => {
-		expect(JSON.stringify(parseVolumeCfg(''))).toBe('{"gameLevel":80,"otherLevel":20,"stream":3}');
+	it('ריק → ברירות-מחדל כולל maxLevel:100', () => {
+		expect(JSON.stringify(parseVolumeCfg(''))).toBe(
+			'{"gameLevel":80,"otherLevel":20,"maxLevel":100,"stream":3}'
+		);
 	});
 
 	it('פגום → ברירות-מחדל', () => {
 		expect(parseVolumeCfg('not json{').gameLevel).toBe(80);
+		expect(parseVolumeCfg('not json{').maxLevel).toBe(100);
 	});
 
 	it('חלקי → מיזוג', () => {
@@ -72,9 +102,35 @@ describe('parseVolumeCfg', () => {
 		expect(parseVolumeCfg('{"gameLevel":70}').otherLevel).toBe(20);
 	});
 
+	it('maxLevel חלקי → מיזוג', () => {
+		expect(parseVolumeCfg('{"maxLevel":40}').maxLevel).toBe(40);
+		expect(parseVolumeCfg('{"maxLevel":40}').gameLevel).toBe(80);
+	});
+
 	it('round-trip serialize→parse', () => {
 		expect(
 			parseVolumeCfg(serializeVolumeCfg({ gameLevel: 95, otherLevel: 15, stream: 3 })).gameLevel
 		).toBe(95);
+	});
+
+	it('round-trip maxLevel', () => {
+		expect(
+			parseVolumeCfg(serializeVolumeCfg({ gameLevel: 95, otherLevel: 15, maxLevel: 60, stream: 3 }))
+				.maxLevel
+		).toBe(60);
+	});
+});
+
+describe('clampCfgToMax', () => {
+	it('חותך gameLevel/otherLevel מעל maxLevel', () => {
+		const result = clampCfgToMax({ gameLevel: 80, otherLevel: 90, maxLevel: 50, stream: 3 });
+		expect(result.gameLevel).toBe(50);
+		expect(result.otherLevel).toBe(50);
+	});
+
+	it('לא נוגע בערך מתחת ל-maxLevel', () => {
+		const result = clampCfgToMax({ gameLevel: 30, otherLevel: 20, maxLevel: 50, stream: 3 });
+		expect(result.gameLevel).toBe(30);
+		expect(result.otherLevel).toBe(20);
 	});
 });

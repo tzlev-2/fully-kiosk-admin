@@ -121,9 +121,9 @@ describe('KioskStore', () => {
 		const b = kiosk.addDevice({ baseUrl: 'http://b:2323', password: 'b' });
 
 		a.appList = [{ icon: 'i', label: 'A', package: 'com.a', version: '1', versionCode: 1 }];
-		a.volumeLevel = 42;
-		a.deviceInfo = mockDeviceInfo('id-a');
+		a.deviceInfo = { ...mockDeviceInfo('id-a'), audioVolumes: [{ '3': 42 }] };
 
+		expect(a.volumeLevel).toBe(42);
 		expect(b.appList).toEqual([]);
 		expect(b.volumeLevel).toBe(70);
 		expect(b.deviceInfo).toBeNull();
