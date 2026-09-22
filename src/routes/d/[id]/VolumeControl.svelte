@@ -36,8 +36,8 @@
 	}
 </script>
 
-<label class="flex flex-col gap-1">
-	<span class="text-sm font-semibold">{label}</span>
+<div class="flex flex-col gap-1">
+	<label for={testId} class="text-sm font-semibold">{label}</label>
 	<div class="flex items-center gap-2">
 		<button
 			type="button"
@@ -52,6 +52,7 @@
 			min="0"
 			{max}
 			step="1"
+			id={testId}
 			data-testid={testId}
 			{disabled}
 			bind:value={display}
@@ -67,4 +68,4 @@
 		>
 		<span class="min-w-10 text-center text-sm font-semibold text-base-content/60">{display}%</span>
 	</div>
-</label>
+</div>

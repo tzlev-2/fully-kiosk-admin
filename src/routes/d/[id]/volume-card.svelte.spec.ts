@@ -438,4 +438,38 @@ describe('volume card route', () => {
 		resolveInfo();
 		await expect.element(screen.getByTestId('volume-now')).toHaveValue('86');
 	});
+
+	it('G10: control caption is a real accessible label, not a hidden down-button trigger', async () => {
+		const a = kiosk.addDevice({
+			baseUrl: 'http://10.1.0.1:2323',
+			password: 'a',
+			name: 'A'
+		});
+		a.deviceInfo = mockDeviceInfo('info-a');
+		const calls = installFetch({
+			listByHost: { '10.1.0.1': '{"gameLevel":80,"otherLevel":20,"maxLevel":100,"stream":3}' }
+		});
+
+		show(a.key);
+		const screen = render(Harness);
+		await openAdvanced(screen);
+		await expect.element(screen.getByTestId('volume-game')).toBeInTheDocument();
+
+		const labelByTestId: Record<string, string> = {
+			'volume-now': KIOSK_TEXTS.VOLUME_NOW_LABEL,
+			'volume-game': KIOSK_TEXTS.VOLUME_GAME_LABEL,
+			'volume-reward': KIOSK_TEXTS.VOLUME_REWARD_LABEL,
+			'volume-max': KIOSK_TEXTS.VOLUME_MAX_LABEL
+		};
+		for (const [testId, labelText] of Object.entries(labelByTestId)) {
+			const input = screen.getByTestId(testId).element() as HTMLInputElement;
+			expect(input.labels?.length).toBe(1);
+			expect(input.labels?.[0].tagName).toBe('LABEL');
+			expect(input.labels?.[0].textContent).toBe(labelText);
+		}
+
+		calls.length = 0;
+		await screen.getByText(KIOSK_TEXTS.VOLUME_GAME_LABEL).click();
+		expect(calls.length).toBe(0);
+	});
 });
