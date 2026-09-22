@@ -147,27 +147,86 @@ describe('KioskDevice volume cache', () => {
 		expect(device.volumeLevel).toBe(55); // back to the derived value, not stuck on the rejected 40
 	});
 
-	it('setVolume does not leave a stale optimistic value when the background refresh fails', async () => {
+	it('setVolume keeps the optimistic value when the background refresh fails', async () => {
 		const device = makeDevice({ key: 'a', baseUrl: 'http://10.1.0.1:2323' });
 		device.deviceInfo = baseDeviceInfo([{ '3': 55 }]);
 
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async (input: RequestInfo | URL) => {
-				const url = new URL(String(input));
-				if (url.searchParams.get('cmd') === 'setAudioVolume') {
-					return new Response(JSON.stringify({ status: 'OK' }), { status: 200 });
-				}
-				throw new Error('network down');
-			})
-		);
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(String(input));
+			if (url.searchParams.get('cmd') === 'setAudioVolume') {
+				return new Response(JSON.stringify({ status: 'OK' }), { status: 200 });
+			}
+			throw new Error('network down');
+		});
+		vi.stubGlobal('fetch', fetchMock);
 
 		const ok = await device.setVolume(65);
 		expect(ok).toBe(true);
 		expect(device.volumeLevel).toBe(65); // optimistic, shown immediately
 
 		await vi.waitFor(() => {
-			expect(device.volumeLevel).toBe(55); // refresh failed — falls back to the derived value, not stuck on 65
+			expect(fetchMock).toHaveBeenCalledTimes(2); // setAudioVolume + the failed background refresh
 		});
+		await new Promise((resolve) => setTimeout(resolve, 0)); // let the rejected promise's .catch settle
+
+		// the device really did accept 65 — a failed refresh carries no new information and must not revert it
+		expect(device.volumeLevel).toBe(65);
+	});
+
+	it('setVolume keeps the optimistic value when the background refresh returns HTTP 200 with no deviceId', async () => {
+		const device = makeDevice({ key: 'a', baseUrl: 'http://10.1.0.1:2323' });
+		device.deviceInfo = baseDeviceInfo([{ '3': 55 }]);
+
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(String(input));
+			if (url.searchParams.get('cmd') === 'setAudioVolume') {
+				return new Response(JSON.stringify({ status: 'OK' }), { status: 200 });
+			}
+			// getDeviceInfo resolves (HTTP 200) but the body has neither deviceId nor deviceName —
+			// the guard rejects it, so .then never calls applyDeviceInfo and .catch never fires either
+			return new Response(JSON.stringify({ statustext: 'Session invalid' }), { status: 200 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const ok = await device.setVolume(65);
+		expect(ok).toBe(true);
+
+		await vi.waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(device.volumeLevel).toBe(65);
+	});
+
+	it('setVolume keeps the optimistic value when the refreshed deviceInfo has no audioVolumes', async () => {
+		const device = makeDevice({ key: 'a', baseUrl: 'http://10.1.0.1:2323' });
+		device.deviceInfo = baseDeviceInfo([{ '3': 55 }]);
+
+		const refreshedInfo: Partial<DeviceInfoResponse> = baseDeviceInfo([]);
+		delete refreshedInfo.audioVolumes;
+
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(String(input));
+			if (url.searchParams.get('cmd') === 'setAudioVolume') {
+				return new Response(JSON.stringify({ status: 'OK' }), { status: 200 });
+			}
+			return new Response(JSON.stringify(refreshedInfo), { status: 200 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const ok = await device.setVolume(65);
+		expect(ok).toBe(true);
+
+		await vi.waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		// deviceInfo itself was replaced (guard passed on deviceId) ...
+		expect(device.deviceInfo?.deviceId).toBe('d1');
+		// ... but with no stream-3 reading to trust, falling back to the derived 70 would be
+		// less accurate than the optimistic 65 the device actually accepted
+		expect(device.volumeLevel).toBe(65);
 	});
 });

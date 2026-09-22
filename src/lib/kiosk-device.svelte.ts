@@ -69,10 +69,12 @@ export class KioskDevice {
 		return this.volumeLevel === 0;
 	}
 
-	/** מקום יחיד שמשים deviceInfo שלם — מאפס optimisticVolume כדי שהערך האמיתי יחליף אותו. */
+	/** מקום יחיד שמשים deviceInfo שלם — מאפס optimisticVolume רק כשיש קריאת-אמת של זרם 3 להחליף אותו. */
 	applyDeviceInfo(info: DeviceInfoResponse): void {
 		this.deviceInfo = info;
-		this.optimisticVolume = null;
+		if (volumeFromAudioVolumes(info.audioVolumes) !== null) {
+			this.optimisticVolume = null;
+		}
 	}
 
 	toRecord(): DeviceRecord {
@@ -168,7 +170,7 @@ export class KioskDevice {
 				}
 			})
 			.catch(() => {
-				this.optimisticVolume = null;
+				/* optimisticVolume survives a failed background refresh — it's still the best known value */
 			});
 	}
 

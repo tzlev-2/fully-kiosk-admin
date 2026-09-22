@@ -142,3 +142,31 @@
 - `bunx eslint .` → נקי
 - `bun run test:unit -- --run` → 77/77 (76 + G10)
 - `prettier --check` על 5 קבצי-הסבב → ירוק
+
+### סבב-תיקון שלישי — היפוך ההוראה על `optimisticVolume` (דוח `volume-ui-calev-r2.md`, heavy)
+
+🔴 **התיקון בשורה 129 למעלה ("עכשיו ה-`catch` מאפס אותו") היה שגוי, ומהופך כאן.** `calev` מדד: גרירה ל-65, `setAudioVolume` מצליח, המכשיר עובר ל-65 בפועל, הרענון-ברקע נופל ברשת ⇒ התצוגה קופצת בחזרה ל-100 (הערך הישן מהמטמון) ונשארת שם. איפוס `optimisticVolume` בכשל-רשת הופך תצוגה **נכונה** לשגויה — כשל ברענון אינו מידע חדש, ולכן אינו עילה לזרוק את הידע הטוב ביותר שיש (הערך שהמכשיר כבר אישר).
+
+שלושה שינויים ב-`kiosk-device.svelte.ts`:
+
+1. **`refreshInBackground`** — ה-`.catch` חזר לריק. כשל-רשת ברענון-הרקע כבר לא נוגע ב-`optimisticVolume`.
+2. **המסלול ש-calev הצביע עליו:** `getDeviceInfo` שמחזיר HTTP 200 בגוף בלי `deviceId`/`deviceName` — ה-guard הקיים כבר פוסל אותו (לא נכנס ל-`applyDeviceInfo`, וגם לא ל-`.catch` כי ה-promise נפתר) — האופטימי שורד מאותה סיבה. אומת בטסט ייעודי; לא נדרש שינוי-קוד נוסף כאן.
+3. **`applyDeviceInfo`** — האיפוס של `optimisticVolume` מותנה עכשיו ב-`volumeFromAudioVolumes(info.audioVolumes) !== null`: מאפסים רק כשיש קריאת-אמת שימושה של זרם 3 להחליף אותו. קודם כל השמה של `deviceInfo` שלם איפסה תמיד — כולל כש-`audioVolumes` חסר, מה שהפיל את התצוגה ל-70 בלי סיבה.
+
+הטסט השלישי מ-`a1bd833` (`setVolume does not leave a stale optimistic value when the background refresh fails`) עיגן בפועל את ההתנהגות השגויה כשער-רגרסיה — שונה לשמו/לתוכנו החדש (`setVolume keeps the optimistic value when the background refresh fails`), ואוכף עכשיו שהתצוגה **נשארת** על הערך שהמכשיר קיבל, לא חוזרת לערך הישן. נוספו עוד שני טסטים: רענון שמחזיר HTTP 200 בלי `deviceId`, ורענון שמצליח אבל `deviceInfo` חדש בלי `audioVolumes` — בשניהם האופטימי שורד.
+
+**מה נשאר מחוץ להיקף (תצפית של calev, לא ממצא):** רענון שמצליח אבל מחזיר ערך-אמת **ישן** (המכשיר עוד לא הספיק להחיל את הכתיבה) דורס את האופטימי בערך הנכון-לעכשיו אבל השגוי-רגעית, עד הרענון הבא. זו תוצאה ישירה של ההכרעה "ערך-אמת גובר על אופטימי" ולא באג של הסבב הזה; רענון ידני/`reload` פותר. פתרון אמיתי דורש רצף/תזמון שהוא שינוי-עיצוב מחוץ להיקף התיקון הזה.
+
+#### מוטציות (בקרה שלילית — הרצתי, אדים, שוחזר)
+
+- **`refreshInBackground` `.catch`** — הוחזר `this.optimisticVolume = null` בפנים ⇒ `setVolume keeps the optimistic value when the background refresh fails` אדים (`expected 55 to be 65`). שוחזר.
+- **guard ב-`.then`** — נוסף `else { this.optimisticVolume = null }` ⇒ `... returns HTTP 200 with no deviceId` אדים (`expected 55 to be 65`). שוחזר.
+- **`applyDeviceInfo`** — הוחזר איפוס בלתי-מותנה ⇒ `... has no audioVolumes` אדים (`expected 70 to be 65`, בדיוק הסימפטום המקורי). שוחזר. G8ג (`volume-card.svelte.spec.ts`) נשאר ירוק גם תחת המוטציה הזו (יש בו קריאת-זרם-3 אמיתית משני הצדדים, אז שתי הגרסאות מאפסות) — נבדק בנפרד כדי לוודא שהוא עדיין תלוי בקוד ולא רק "ירוק כי אף פעם לא נבדק".
+
+#### בדיקות
+
+- `bun run check` → 0 ERRORS, 3 WARNINGS (כולן `DeviceForm.svelte`, בסיס)
+- `bunx eslint .` → נקי
+- `bunx vitest run` → 82/82 (77 + 3 חדשים ל-`optimisticVolume`, אחרי שהשלישי מהסבב הקודם שונה לתוכן הנכון)
+- G8ג (`volume-card.svelte.spec.ts`) נבדק בנפרד אחרי השינוי ב-`applyDeviceInfo` → ירוק
+- `prettier --check` על קבצי-הסבב (`kiosk-device.svelte.ts` + `.spec.ts`, וגם שאר 13 קבצי-הסלייס הקיימים) → ירוק
