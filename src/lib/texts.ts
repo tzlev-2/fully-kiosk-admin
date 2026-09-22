@@ -139,6 +139,9 @@ export const KIOSK_TEXTS = {
 
 	// ווליום
 	VOLUME_LABEL: 'עוצמת שמע',
+	VOLUME_NOW_LABEL: 'עוצמה עכשיו',
+	VOLUME_MAX_LABEL: 'עוצמה מרבית',
+	VOLUME_ADVANCED: 'מתקדם',
 	VOLUME_GAME_LABEL: 'עוצמת משחק',
 	VOLUME_REWARD_LABEL: 'עוצמת אפליקציית תגמול',
 	VOLUME_DOWN: 'הנמך',

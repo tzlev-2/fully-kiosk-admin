@@ -4,7 +4,7 @@
 	import { kiosk } from '$lib/kiosk-store.svelte';
 	import type { KioskDevice } from '$lib/kiosk-device.svelte';
 	import DeviceInfoPanel from './DeviceInfoPanel.svelte';
-	import VolumeSliders from './VolumeSliders.svelte';
+	import VolumeCard from './VolumeCard.svelte';
 
 	const device = getContext<KioskDevice>('kiosk-device');
 
@@ -82,10 +82,6 @@
 		const ok = await device.rebootDevice();
 		if (ok) kiosk.showFeedback('success', KIOSK_TEXTS.SUCCESS_REBOOT_DEVICE);
 		else kiosk.showFeedback('error', KIOSK_TEXTS.ERROR_COMMAND);
-	}
-
-	async function handleVolumeCommand(fn: () => void) {
-		fn();
 	}
 </script>
 
@@ -179,46 +175,7 @@
 	</div>
 </div>
 
-<VolumeSliders />
-
-<!-- עוצמת שמע -->
-<div class="card border border-base-content/10 bg-base-100/80 shadow-sm backdrop-blur">
-	<div class="card-body gap-4">
-		<h2 class="card-title text-base">🔊 {KIOSK_TEXTS.VOLUME_LABEL}</h2>
-
-		<progress
-			class="progress w-full progress-primary"
-			value={device.isMuted ? 0 : device.volumeLevel}
-			max="100"
-		></progress>
-
-		<div class="flex items-center justify-center gap-2">
-			<button
-				class="btn btn-circle border border-base-300 btn-ghost btn-sm"
-				onclick={() => handleVolumeCommand(() => device.volumeDown())}
-				disabled={device.volumeLevel === 0 || device.isMuted}
-				aria-label={KIOSK_TEXTS.VOLUME_DOWN}>–</button
-			>
-			<button
-				class="btn btn-circle btn-sm"
-				class:btn-error={device.isMuted}
-				class:btn-ghost={!device.isMuted}
-				onclick={() => handleVolumeCommand(() => device.toggleMute())}
-				aria-label={device.isMuted ? KIOSK_TEXTS.VOLUME_UNMUTE : KIOSK_TEXTS.VOLUME_MUTE}
-				>{device.isMuted ? '🔇' : '🔊'}</button
-			>
-			<button
-				class="btn btn-circle border border-base-300 btn-ghost btn-sm"
-				onclick={() => handleVolumeCommand(() => device.volumeUp())}
-				disabled={device.volumeLevel >= 100}
-				aria-label={KIOSK_TEXTS.VOLUME_UP}>+</button
-			>
-			<span class="min-w-10 text-center text-sm font-semibold text-base-content/60">
-				{device.isMuted ? 0 : device.volumeLevel}%
-			</span>
-		</div>
-	</div>
-</div>
+<VolumeCard />
 
 <!-- מסך -->
 <div class="card border border-base-content/10 bg-base-100/80 shadow-sm backdrop-blur">
