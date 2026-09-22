@@ -85,6 +85,9 @@ d['remoteAdminLan'] = True
 d['enableLocalhost'] = True
 # 🔴 בלי זה יש סיכון ש-Fully יכבה ADB בהקצאה ותיחסם הגישה למכשיר (נצפה: adb_enabled=0)
 d['mdmDisableADB'] = False
+# 🔑 מבטל את כפתור CONTINUE בסוף ההקצאה ⇒ אפס נגיעות במסך.
+# הוא נקרא מתוך הקובץ המיובא, וההקצאה ממשיכה לבדה ל-'Continue device setup'.
+d['skipLaunchButtonInProvisioning'] = True
 json.dump(d, open(sys.argv[2], 'w', encoding='utf-8'))
 print("  מפתחות:", len(d))
 PY
@@ -129,7 +132,12 @@ adb shell "am start -n $PKG/de.ozerov.fully.ProvisioningActivity -f 0x1c008000 \
 sleep 12
 adb logcat -d 2>/dev/null | grep -E 'ProvisioningActivity:|Settings imported' | tr -d '\r' | tail -8
 
-echo "== 8a. לחיצת CONTINUE =="
+echo "== 8a. גיבוי: לחיצת CONTINUE =="
+# עם skipLaunchButtonInProvisioning=true הכפתור לא אמור להופיע כלל, וההקצאה
+# מסתיימת לבדה. הבלוק הזה הוא רשת-ביטחון לבניות/גרסאות שבהן הוא כן מופיע.
+if adb logcat -d 2>/dev/null | grep -q "Continue device setup"; then
+	echo "  ✅ ההקצאה הסתיימה לבדה — אין צורך בהקשה"
+else
 # ‏ProvisioningActivity **אינה מסיימת את עצמה**. עד שלא נלחץ CONTINUE, MainActivity
 # מדווחת "Restarting incomplete provisioning" ומקפיצה חזרה — לולאה אינסופית.
 # 🛑 `uiautomator dump` דוגם **רק את החלון הממוקד**. הדיאלוג
@@ -167,6 +175,8 @@ for attempt in 1 2 3 4 5 6; do
 		"GET PERMISSIONS")  adb shell 'input keyevent 4' >/dev/null 2>&1; sleep 3 ;;
 	esac
 done
+
+fi
 
 echo "== 9. הפעלת Fully =="
 adb shell "am start -n $PKG/de.ozerov.fully.MainActivity" >/dev/null
