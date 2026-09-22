@@ -21,6 +21,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APK="${APK:-$HERE/fkb-emm-1.61.3.apk}"
 SETTINGS_SRC="${SETTINGS_SRC:-$HERE/../src/lib/provisioning/fully-settings.json}"
 SERVE_PORT="${SERVE_PORT:-8790}"
+# קוד הקצאה: FFF = ללא ענן. קוד מפרופיל ב-Fully Cloud רושם את המכשיר לחשבון
+# ומאפשר Remote Admin מכל מקום (ADVANCED). ⚠️ גם עם קוד ענן חייבים להעביר
+# FULLY_SETTINGS_DOWNLOAD_LOCATION במפורש — settings_url שבפרופיל לא נמשך (נמדד).
+PROV_CODE="${PROV_CODE:-FFF}"
 
 adb() { command adb -s "$ADB_TARGET" "$@"; }
 
@@ -79,6 +83,8 @@ d['remoteAdminPassword'] = os.environ['PW']     # ← המפתח שהיה חסר
 d['remoteAdmin'] = True
 d['remoteAdminLan'] = True
 d['enableLocalhost'] = True
+# 🔴 בלי זה יש סיכון ש-Fully יכבה ADB בהקצאה ותיחסם הגישה למכשיר (נצפה: adb_enabled=0)
+d['mdmDisableADB'] = False
 json.dump(d, open(sys.argv[2], 'w', encoding='utf-8'))
 print("  מפתחות:", len(d))
 PY
@@ -118,7 +124,7 @@ echo "== 8. ההקצאה — CLEAR_TASK כדי לקבל onCreate טרי =="
 #    ה-intent מגיע ל-onNewIntent, ו-Fully קורא extras **רק ב-onCreate**.
 #    עם זה אפשר לחזור על הצעד הזה שוב ושוב בלי לנגב את המכשיר.
 adb shell "am start -n $PKG/de.ozerov.fully.ProvisioningActivity -f 0x1c008000 \
-	--es FULLY_PROVISIONING_CODE 'FFF' \
+	--es FULLY_PROVISIONING_CODE "$PROV_CODE" \
 	--es FULLY_SETTINGS_DOWNLOAD_LOCATION '$SETTINGS_URL'" >/dev/null
 sleep 12
 adb logcat -d 2>/dev/null | grep -E 'ProvisioningActivity:|Settings imported' | tr -d '\r' | tail -8
@@ -126,25 +132,40 @@ adb logcat -d 2>/dev/null | grep -E 'ProvisioningActivity:|Settings imported' | 
 echo "== 8a. לחיצת CONTINUE =="
 # ‏ProvisioningActivity **אינה מסיימת את עצמה**. עד שלא נלחץ CONTINUE, MainActivity
 # מדווחת "Restarting incomplete provisioning" ומקפיצה חזרה — לולאה אינסופית.
-# מאתרים את הכפתור ב-uiautomator במקום קואורדינטות קבועות.
-for attempt in 1 2 3; do
-	adb shell 'uiautomator dump /sdcard/ui.xml' >/dev/null 2>&1 || true
-	XY="$(adb shell 'cat /sdcard/ui.xml' 2>/dev/null | tr -d '\r' | python3 -c "
-import re,sys
-s=sys.stdin.read()
-for label in ('CONTINUE','GET PERMISSIONS'):
-    m=re.search(r'text=\"%s\"[^>]*bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"'%label, s)
+# 🛑 `uiautomator dump` דוגם **רק את החלון הממוקד**. הדיאלוג
+#    ImmersiveModeConfirmation ("Viewing full screen / Got it") עולה מעל Fully
+#    ומסתיר את הכפתור לגמרי — הדאמפ יחזור בלי CONTINUE ובלי שגיאה.
+#    לכן: מחפשים גם את "Got it", ולוחצים עליו קודם. אפס קואורדינטות קשיחות.
+find_button() {
+	adb shell 'uiautomator dump /sdcard/ui.xml' >/dev/null 2>&1 || return 1
+	adb shell 'cat /sdcard/ui.xml' 2>/dev/null | tr -d '\r' | python3 -c "
+import re, sys
+s = sys.stdin.read()
+for label in ('Got it', 'CONTINUE', 'GET PERMISSIONS'):
+    m = re.search(r'text=\"%s\"[^>]*bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"' % label, s)
     if m:
-        x1,y1,x2,y2=map(int,m.groups()); print(label,(x1+x2)//2,(y1+y2)//2); break
-" 2>/dev/null)"
-	[[ -z "$XY" ]] && { echo "  אין כפתור במסך (ניסיון $attempt)"; sleep 3; continue; }
-	set -- $XY
-	echo "  לוחץ $1 ב-($2,$3)"
-	adb shell "input tap $2 $3" >/dev/null 2>&1
+        x1, y1, x2, y2 = map(int, m.groups())
+        print(label, (x1 + x2) // 2, (y1 + y2) // 2)
+        break
+"
+}
+for attempt in 1 2 3 4 5 6; do
+	XY="$(find_button)" || true
+	if [ -z "$XY" ]; then
+		echo "  אין כפתור מזוהה (ניסיון $attempt) · focus: $(adb shell 'dumpsys window | grep -o "mCurrentFocus=.*"' | tr -d '\r')"
+		sleep 3; continue
+	fi
+	LABEL="${XY% * *}"; REST="${XY#* }"; X="${REST% *}"; Y="${REST#* }"
+	echo "  לוחץ '$LABEL' ב-($X,$Y)"
+	adb shell "input tap $X $Y" >/dev/null 2>&1
 	sleep 5
-	[[ "$1" == "CONTINUE" ]] && break
-	# GET PERMISSIONS פתח מסך הגדרות — ההרשאה כבר ניתנה בסעיף 6, חוזרים אחורה
-	adb shell 'input keyevent 4' >/dev/null 2>&1; sleep 3
+	case "$LABEL" in
+		"Got it")           ;;                       # רק סילקנו דיאלוג — לחפש שוב
+		"CONTINUE")
+			adb logcat -d 2>/dev/null | grep -q 'Continue device setup' && { echo "  ✅ Continue device setup"; break; }
+			;;                                        # לפעמים ההקשה הראשונה לא נרשמת — ננסה שוב
+		"GET PERMISSIONS")  adb shell 'input keyevent 4' >/dev/null 2>&1; sleep 3 ;;
+	esac
 done
 
 echo "== 9. הפעלת Fully =="
