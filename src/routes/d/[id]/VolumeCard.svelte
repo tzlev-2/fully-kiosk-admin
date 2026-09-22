@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, untrack } from 'svelte';
 	import { KIOSK_TEXTS } from '$lib/texts';
 	import type { KioskDevice } from '$lib/kiosk-device.svelte';
 	import { kiosk } from '$lib/kiosk-store.svelte';
@@ -12,7 +12,11 @@
 	let advanced = $state(false);
 
 	$effect(() => {
-		void device.loadVolumeCfg(writer);
+		// device.loadVolumeCfg קוראת device.volumeCfg (דרך toRecord) וגם כותבת אותו —
+		// בלי untrack זה effect שמפעיל את עצמו שוב בכל כתיבה (ר' תיעוד $effect).
+		untrack(() => {
+			void device.loadVolumeCfg(writer);
+		});
 	});
 
 	async function saveField(
