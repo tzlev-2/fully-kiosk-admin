@@ -52,4 +52,7 @@ export interface DeviceInfoResponse {
 	// רשת
 	ip4: string;
 	SSID: string;
+
+	// עוצמות-שמע לפי זרם (מפתח = מספר-זרם כמחרוזת, למשל "3" = MUSIC) — שדה-רשות
+	audioVolumes?: Record<string, number>[];
 }

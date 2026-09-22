@@ -35,7 +35,7 @@ describe('KioskDevice volume cache', () => {
 	it('toRecord preserves volume from record before loadVolumeCfg', () => {
 		const device = makeDevice({
 			key: 'a',
-			volume: { gameLevel: 10, otherLevel: 20, stream: 3 }
+			volume: { gameLevel: 10, otherLevel: 20, maxLevel: 100, stream: 3 }
 		});
 		expect(device.toRecord().volume?.gameLevel).toBe(10);
 		expect(device.volumeCfg.gameLevel).toBe(10);
@@ -54,7 +54,7 @@ describe('KioskDevice volume cache', () => {
 	it('loadVolumeCfg resets to defaults when key missing', async () => {
 		const device = makeDevice({
 			key: 'a',
-			volume: { gameLevel: 10, otherLevel: 20, stream: 3 }
+			volume: { gameLevel: 10, otherLevel: 20, maxLevel: 100, stream: 3 }
 		});
 		const writer = fakeWriter({});
 		await device.loadVolumeCfg(writer);
@@ -64,7 +64,7 @@ describe('KioskDevice volume cache', () => {
 	it('loadVolumeCfg keeps cache when read throws', async () => {
 		const device = makeDevice({
 			key: 'a',
-			volume: { gameLevel: 10, otherLevel: 20, stream: 3 }
+			volume: { gameLevel: 10, otherLevel: 20, maxLevel: 100, stream: 3 }
 		});
 		const writer = fakeWriter(new Error('network'));
 		await device.loadVolumeCfg(writer);
@@ -73,7 +73,7 @@ describe('KioskDevice volume cache', () => {
 
 	it('saveVolumeCfg updates state only after successful write', async () => {
 		const device = makeDevice({ key: 'a' });
-		const next: VolumeCfg = { gameLevel: 55, otherLevel: 30, stream: 3 };
+		const next: VolumeCfg = { gameLevel: 55, otherLevel: 30, maxLevel: 100, stream: 3 };
 		const writer: SettingsWriter = {
 			read: vi.fn(),
 			write: vi.fn(async () => {

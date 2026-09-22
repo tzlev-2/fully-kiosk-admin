@@ -1,5 +1,11 @@
 import { SvelteURL } from 'svelte/reactivity';
-import { parseVolumeCfg, serializeVolumeCfg, type VolumeCfg } from './booster-config';
+import {
+	clampCfgToMax,
+	parseVolumeCfg,
+	serializeVolumeCfg,
+	type VolumeCfg
+} from './booster-config';
+import { volumeFromAudioVolumes } from './audio-volumes';
 import { FullyKioskClient } from './fully-kiosk-client';
 import type { AppListItem, DeviceInfoResponse, RecentApp } from './fully-kiosk-types';
 import type { SettingsWriter } from './settings-writer';
@@ -34,13 +40,12 @@ export class KioskDevice {
 	connectionStatus = $state<ConnectionStatus>('idle');
 	appList = $state<AppListItem[]>([]);
 	recentApps = $state<RecentApp[]>([]);
-	volumeLevel = $state(70);
-	volumeCfg = $state<VolumeCfg>({ gameLevel: 80, otherLevel: 20, stream: 3 });
-	isMuted = $state(false);
+	volumeCfg = $state<VolumeCfg>(parseVolumeCfg());
 	isConnecting = $state(false);
 	isLoading = $state(false);
 	appsLoading = $state(false);
 
+	private optimisticVolume = $state<number | null>(null);
 	private prevVolume = 70;
 	private hooks: DeviceHooks;
 
@@ -52,10 +57,22 @@ export class KioskDevice {
 		this.baseUrl = record.baseUrl;
 		this.password = record.password;
 		this.recentApps = [...record.recentApps];
-		this.volumeCfg = record.volume
-			? { ...record.volume }
-			: { gameLevel: 80, otherLevel: 20, stream: 3 };
+		this.volumeCfg = record.volume ? { ...parseVolumeCfg(), ...record.volume } : parseVolumeCfg();
 		this.hooks = hooks;
+	}
+
+	get volumeLevel(): number {
+		return this.optimisticVolume ?? volumeFromAudioVolumes(this.deviceInfo?.audioVolumes) ?? 70;
+	}
+
+	get isMuted(): boolean {
+		return this.volumeLevel === 0;
+	}
+
+	/** מקום יחיד שמשים deviceInfo שלם — מאפס optimisticVolume כדי שהערך האמיתי יחליף אותו. */
+	applyDeviceInfo(info: DeviceInfoResponse): void {
+		this.deviceInfo = info;
+		this.optimisticVolume = null;
 	}
 
 	toRecord(): DeviceRecord {
@@ -75,9 +92,9 @@ export class KioskDevice {
 		try {
 			const settings = await writer.read(this.toRecord());
 			if ('boosterVolumeCfg' in settings) {
-				this.volumeCfg = parseVolumeCfg(settings.boosterVolumeCfg);
+				this.volumeCfg = clampCfgToMax(parseVolumeCfg(settings.boosterVolumeCfg));
 			} else {
-				this.volumeCfg = { gameLevel: 80, otherLevel: 20, stream: 3 };
+				this.volumeCfg = parseVolumeCfg();
 			}
 			this.hooks.persist();
 		} catch {
@@ -86,8 +103,12 @@ export class KioskDevice {
 	}
 
 	async saveVolumeCfg(writer: SettingsWriter, next: VolumeCfg): Promise<void> {
-		await writer.write(this.toRecord(), 'boosterVolumeCfg', serializeVolumeCfg(next));
-		this.volumeCfg = next;
+		const cfg = clampCfgToMax(next);
+		await writer.write(this.toRecord(), 'boosterVolumeCfg', serializeVolumeCfg(cfg));
+		if (cfg.maxLevel !== this.volumeCfg.maxLevel) {
+			await writer.write(this.toRecord(), 'volumeLimits', `3:${cfg.maxLevel}`);
+		}
+		this.volumeCfg = cfg;
 		this.hooks.persist();
 	}
 
@@ -141,7 +162,7 @@ export class KioskDevice {
 			.getDeviceInfo()
 			.then((info) => {
 				if (info?.deviceId || info?.deviceName) {
-					this.deviceInfo = info;
+					this.applyDeviceInfo(info);
 					this.hooks.onInfo(this);
 				}
 			})
@@ -158,7 +179,7 @@ export class KioskDevice {
 			try {
 				const info = await this.getClient().getDeviceInfo();
 				if (info?.deviceId || info?.deviceName) {
-					this.deviceInfo = info;
+					this.applyDeviceInfo(info);
 					this.connectionStatus = 'connected';
 					this.hooks.persist();
 					return true;
@@ -195,7 +216,7 @@ export class KioskDevice {
 				try {
 					const info = await this.getClient().getDeviceInfo();
 					if (info?.deviceId || info?.deviceName) {
-						this.deviceInfo = info;
+						this.applyDeviceInfo(info);
 						this.connectionStatus = 'connected';
 						this.hooks.persist();
 						return true;
@@ -217,7 +238,7 @@ export class KioskDevice {
 		try {
 			const info = await this.getClient().getDeviceInfo();
 			if (info?.deviceId || info?.deviceName) {
-				this.deviceInfo = info;
+				this.applyDeviceInfo(info);
 				return true;
 			}
 			return false;
@@ -301,12 +322,13 @@ export class KioskDevice {
 	async setVolume(level: number): Promise<boolean> {
 		if (!this.deviceInfo) return false;
 		const clamped = Math.max(0, Math.min(100, level));
+		this.optimisticVolume = clamped;
 		try {
 			await this.getClient().setAudioVolume(clamped);
-			this.volumeLevel = clamped;
-			this.isMuted = clamped === 0;
+			this.refreshInBackground();
 			return true;
 		} catch {
+			this.optimisticVolume = null;
 			return false;
 		}
 	}
@@ -449,7 +471,7 @@ export class KioskDevice {
 				await this.getClient().screenOn();
 			}
 			const info = await this.getClient().getDeviceInfo();
-			if (info?.deviceId || info?.deviceName) this.deviceInfo = info;
+			if (info?.deviceId || info?.deviceName) this.applyDeviceInfo(info);
 			return true;
 		} catch {
 			return false;
