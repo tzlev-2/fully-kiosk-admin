@@ -1,6 +1,8 @@
 import { SvelteURL } from 'svelte/reactivity';
+import { parseVolumeCfg, serializeVolumeCfg, type VolumeCfg } from './booster-config';
 import { FullyKioskClient } from './fully-kiosk-client';
 import type { AppListItem, DeviceInfoResponse, RecentApp } from './fully-kiosk-types';
+import type { SettingsWriter } from './settings-writer';
 import type { ConnectionStatus } from './texts';
 
 export const KIOSK_PROXY_PORT = import.meta.env.VITE_KIOSK_PROXY_PORT || 8765;
@@ -13,6 +15,7 @@ export interface DeviceRecord {
 	baseUrl: string;
 	password: string;
 	recentApps: RecentApp[];
+	volume?: VolumeCfg;
 }
 
 type DeviceHooks = {
@@ -32,6 +35,7 @@ export class KioskDevice {
 	appList = $state<AppListItem[]>([]);
 	recentApps = $state<RecentApp[]>([]);
 	volumeLevel = $state(70);
+	volumeCfg = $state<VolumeCfg>({ gameLevel: 80, otherLevel: 20, stream: 3 });
 	isMuted = $state(false);
 	isConnecting = $state(false);
 	isLoading = $state(false);
@@ -48,6 +52,9 @@ export class KioskDevice {
 		this.baseUrl = record.baseUrl;
 		this.password = record.password;
 		this.recentApps = [...record.recentApps];
+		this.volumeCfg = record.volume
+			? { ...record.volume }
+			: { gameLevel: 80, otherLevel: 20, stream: 3 };
 		this.hooks = hooks;
 	}
 
@@ -59,8 +66,33 @@ export class KioskDevice {
 			name: this.name,
 			baseUrl: this.baseUrl,
 			password: this.password,
-			recentApps: [...this.recentApps]
+			recentApps: [...this.recentApps],
+			volume: { ...this.volumeCfg }
 		};
+	}
+
+	async loadVolumeCfg(writer: SettingsWriter): Promise<void> {
+		try {
+			const settings = await writer.read(this.toRecord());
+			if ('boosterVolumeCfg' in settings) {
+				this.volumeCfg = parseVolumeCfg(settings.boosterVolumeCfg);
+			} else {
+				this.volumeCfg = { gameLevel: 80, otherLevel: 20, stream: 3 };
+			}
+			this.hooks.persist();
+		} catch {
+			/* cache stays */
+		}
+	}
+
+	async saveVolumeCfg(writer: SettingsWriter, next: VolumeCfg): Promise<void> {
+		await writer.write(
+			this.toRecord(),
+			'boosterVolumeCfg',
+			serializeVolumeCfg(next)
+		);
+		this.volumeCfg = next;
+		this.hooks.persist();
 	}
 
 	private getClient(): FullyKioskClient {
