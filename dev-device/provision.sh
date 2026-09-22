@@ -53,6 +53,22 @@ echo "== 4. התקנה (-g: כל הרשאות הריצה מאושרות מראש
 adb install -r -g "$APK"
 adb shell "am start -n $PKG/.MainActivity" >/dev/null; sleep 6   # יצירת תיקיית הנתונים
 
+echo "== 4a. הרשאות מיוחדות (app-ops) =="
+# 🔴 אלה **אינן** הרשאות-ריצה, ולכן `install -g` אינו נוגע בהן — ובלעדיהן Fully
+#    מבקש הרשאות על המסך בהפעלה הראשונה. הן גם **אינן דורשות device-owner**:
+#    עד 22/09 הן ישבו בתוך `if DEVICE_OWNER`, וריצה בלי הדגל השאירה את המכשיר
+#    מבקש הרשאות (נצפה: GET_USAGE_STATS ו-MANAGE_EXTERNAL_STORAGE עם rejectTime).
+# 🛑 חייב לקרות **לפני** סעיף 5 (הדלקת Remote Admin) — ראו ההערה שם.
+for op in MANAGE_EXTERNAL_STORAGE SYSTEM_ALERT_WINDOW GET_USAGE_STATS WRITE_SETTINGS REQUEST_INSTALL_PACKAGES; do
+	adb shell "appops set $PKG $op allow" >/dev/null 2>&1 || true
+done
+adb shell "cmd notification allow_listener $PKG/de.ozerov.fully.NotificationService" >/dev/null 2>&1 || true
+adb shell "dumpsys deviceidle whitelist +$PKG" >/dev/null 2>&1 || true
+for op in MANAGE_EXTERNAL_STORAGE GET_USAGE_STATS; do
+	printf "  %-26s " "$op"
+	adb shell "cmd appops get $PKG $op" 2>/dev/null | head -1 | tr -d "\r"
+done
+
 if [[ $DEVICE_OWNER -eq 1 ]]; then
 	echo "== 4b. device owner (מתכון ה-ADB מהרנבוק provision-kiosk-tablet-via-adb) =="
 	# 🛑 דורש **יציאה לאינטרנט מהמכשיר**: קוד ה-provisioning נפתר מול הענן של Fully.
@@ -61,11 +77,6 @@ if [[ $DEVICE_OWNER -eq 1 ]]; then
 	# 🛑 הסדר קריטי: זה חייב לקרות **לפני** הדלקת Remote Admin. ברגע שהיא נדלקת Fully
 	#    רושם את de.ozerov.fully/.MyDeviceAdmin, ואז set-device-owner נכשל
 	#    ב-"Unknown admin: …DeviceOwnerReceiver". התנאי הנוסף: אפס חשבונות (dumpsys account).
-	for op in MANAGE_EXTERNAL_STORAGE SYSTEM_ALERT_WINDOW GET_USAGE_STATS WRITE_SETTINGS REQUEST_INSTALL_PACKAGES; do
-		adb shell "appops set $PKG $op allow" >/dev/null 2>&1 || true
-	done
-	adb shell "cmd notification allow_listener $PKG/de.ozerov.fully.NotificationService" >/dev/null 2>&1 || true
-	adb shell "dumpsys deviceidle whitelist +$PKG" >/dev/null 2>&1 || true
 	adb shell "dpm set-device-owner $RECEIVER" || echo "⚠️ set-device-owner לא עבר"
 	adb shell "am start -n $PKG/de.ozerov.fully.ProvisioningActivity --es FULLY_PROVISIONING_CODE FFF" >/dev/null 2>&1 || true
 	sleep 8
