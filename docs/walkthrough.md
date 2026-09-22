@@ -1,5 +1,24 @@
 # יומן פיתוח — ניהול קיוסק פולי (kiosk-admin)
 
+## 2026-09-22 10:41
+
+### אריח "משחקי הלמידה" בלאונצ'ר, ופריסה כמעט ללא מגע
+
+- `src/lib/provisioning/fully-settings.json` — נוסף אריח תשיעי ל-`launcherApps`:
+  **משחקי הלמידה** → `https://learn-games.tzlev.ovh`. אריח "היכנס למצב קיוסק"
+  נשאר במקומו, כך שאפשר להיכנס לקיוסק ממסך הפתיחה בלי מכשיר חדש.
+- הופעל גם על המכשיר החי דרך `setStringSetting` (‏POST, כי הערך ארוך).
+
+#### מה שהתבהר על ה-provisioning עצמו
+
+- **`FULLY_PROVISIONING_CODE=FFF`** מדלג על מסך ה-Provisioning Code.
+- הענקת ה-appops **לפני** השקת `ProvisioningActivity` מבטלת את כל מסכי
+  ההרשאות. נשארת הקשת `CONTINUE` אחת.
+- ⚠️ ה-OAuth token של פרופיל `avibr_AT_tzlev_com` **פג** באמצע העבודה
+  ו-`wrangler` החזיר 403. הריענון: להריץ פקודת `cf` כלשהי עם הפרופיל,
+  והיא כותבת טוקן חדש לקובץ.
+
+
 ## 2026-09-22 10:17
 
 ### נקודת provisioning: הממשק מגיש את קונפיג ה-Fully למכשיר חדש
