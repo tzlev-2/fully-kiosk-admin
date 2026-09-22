@@ -4,6 +4,7 @@
 	import { kiosk } from '$lib/kiosk-store.svelte';
 	import type { KioskDevice } from '$lib/kiosk-device.svelte';
 	import DeviceInfoPanel from './DeviceInfoPanel.svelte';
+	import VolumeSliders from './VolumeSliders.svelte';
 
 	const device = getContext<KioskDevice>('kiosk-device');
 
@@ -177,6 +178,8 @@
 		</div>
 	</div>
 </div>
+
+<VolumeSliders />
 
 <!-- עוצמת שמע -->
 <div class="card border border-base-content/10 bg-base-100/80 shadow-sm backdrop-blur">

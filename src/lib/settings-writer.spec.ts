@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DeviceRecord } from './kiosk-device.svelte';
-import {
-	createBrowserSettingsWriter,
-	settingsFromListBody
-} from './settings-writer';
+import { createBrowserSettingsWriter, settingsFromListBody } from './settings-writer';
 import { FullyKioskClient } from './fully-kiosk-client';
 
 const device: DeviceRecord = {
@@ -34,16 +31,13 @@ describe('createBrowserSettingsWriter', () => {
 
 	it('write posts to proxy port 8765 with setStringSetting', async () => {
 		const calls: RequestInit[] = [];
-		vi.stubGlobal(
-			'fetch',
-			async (_input: RequestInfo | URL, init?: RequestInit) => {
-				calls.push(init ?? {});
-				const url = new URL(String(_input));
-				expect(url.port).toBe('8765');
-				expect(url.href).not.toContain(':2323');
-				return new Response(JSON.stringify({ status: 'OK' }), { status: 200 });
-			}
-		);
+		vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+			calls.push(init ?? {});
+			const url = new URL(String(_input));
+			expect(url.port).toBe('8765');
+			expect(url.href).not.toContain(':2323');
+			return new Response(JSON.stringify({ status: 'OK' }), { status: 200 });
+		});
 
 		const writer = createBrowserSettingsWriter();
 		await writer.write(device, 'boosterVolumeCfg', '{"gameLevel":80}');

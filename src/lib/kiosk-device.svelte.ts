@@ -86,11 +86,7 @@ export class KioskDevice {
 	}
 
 	async saveVolumeCfg(writer: SettingsWriter, next: VolumeCfg): Promise<void> {
-		await writer.write(
-			this.toRecord(),
-			'boosterVolumeCfg',
-			serializeVolumeCfg(next)
-		);
+		await writer.write(this.toRecord(), 'boosterVolumeCfg', serializeVolumeCfg(next));
 		this.volumeCfg = next;
 		this.hooks.persist();
 	}

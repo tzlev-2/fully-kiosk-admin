@@ -46,15 +46,11 @@ describe('renderInjectJs', () => {
 
 describe('serializeVolumeCfg', () => {
 	it('clamp מעל 100', () => {
-		expect(JSON.parse(serializeVolumeCfg({ gameLevel: 150, otherLevel: -5 })).gameLevel).toBe(
-			100
-		);
+		expect(JSON.parse(serializeVolumeCfg({ gameLevel: 150, otherLevel: -5 })).gameLevel).toBe(100);
 	});
 
 	it('clamp מתחת ל-0', () => {
-		expect(JSON.parse(serializeVolumeCfg({ gameLevel: 150, otherLevel: -5 })).otherLevel).toBe(
-			0
-		);
+		expect(JSON.parse(serializeVolumeCfg({ gameLevel: 150, otherLevel: -5 })).otherLevel).toBe(0);
 	});
 
 	it('stream ברירת-מחדל 3', () => {
@@ -64,9 +60,7 @@ describe('serializeVolumeCfg', () => {
 
 describe('parseVolumeCfg', () => {
 	it('ריק → ברירות-מחדל', () => {
-		expect(JSON.stringify(parseVolumeCfg(''))).toBe(
-			'{"gameLevel":80,"otherLevel":20,"stream":3}'
-		);
+		expect(JSON.stringify(parseVolumeCfg(''))).toBe('{"gameLevel":80,"otherLevel":20,"stream":3}');
 	});
 
 	it('פגום → ברירות-מחדל', () => {
@@ -79,8 +73,8 @@ describe('parseVolumeCfg', () => {
 	});
 
 	it('round-trip serialize→parse', () => {
-		expect(parseVolumeCfg(serializeVolumeCfg({ gameLevel: 95, otherLevel: 15, stream: 3 })).gameLevel).toBe(
-			95
-		);
+		expect(
+			parseVolumeCfg(serializeVolumeCfg({ gameLevel: 95, otherLevel: 15, stream: 3 })).gameLevel
+		).toBe(95);
 	});
 });

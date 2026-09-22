@@ -139,6 +139,8 @@ export const KIOSK_TEXTS = {
 
 	// ווליום
 	VOLUME_LABEL: 'עוצמת שמע',
+	VOLUME_GAME_LABEL: 'עוצמת משחק',
+	VOLUME_REWARD_LABEL: 'עוצמת אפליקציית תגמול',
 	VOLUME_DOWN: 'הנמך',
 	VOLUME_UP: 'הגבה',
 	VOLUME_MUTE: 'השתק',
