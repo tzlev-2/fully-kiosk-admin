@@ -39,6 +39,16 @@ for i in $(seq 1 60); do
 	sleep 5
 	[[ $i -eq 60 ]] && { echo "המכשיר לא השלים אתחול בחמש דקות"; exit 1; }
 done
+# 🛑 שער: כל המסלול חייב לרוץ כ-shell, כמו על טאבלט אמיתי.
+# ‏redroid הוא userdebug ו-`adb root` עובד בו — אבל הטאבלטים הם `user` עם
+# ‏`ro.debuggable=0`, ושם הוא בלתי אפשרי. מסלול שדורש root אינו ניתן להעברה,
+# וכבר הטעה אותנו פעם (הנוסח הישן כתב ל-shared_prefs אחרי `adb root`).
+DEV_UID="$(adb shell id -u 2>/dev/null | tr -d '\r')"
+if [[ "$DEV_UID" != "2000" ]]; then
+	echo "🛑 ה-adb רץ כ-uid=$DEV_UID ולא כ-2000(shell)." >&2
+	echo "   להריץ  adb -s $ADB_TARGET unroot  ואז שוב. הריצה הזאת לא הייתה תקפה לטאבלט." >&2
+	exit 1
+fi
 echo -n "  uid: "; adb shell id | tr -d '\r'
 adb shell 'getprop ro.build.version.release; getprop ro.product.cpu.abi' | tr -d '\r'
 
@@ -139,6 +149,16 @@ else
 	echo "   או להעביר SETTINGS_URL של מנהרה ציבורית." >&2
 	exit 1
 fi
+
+echo "== 4b. נטרול אימות-חבילות של Play =="
+# 🔴 על מכשיר עם Google Play, ‏Play Protect חוטף כל `adb install` ומריץ
+#    "VerifyApps: Anti-malware verification". נמדד: ההתקנה **נתקעה 14 דקות**
+#    בלי הודעת שגיאה, והלוג הראה `Finsky: VerifyApps ... started`.
+#    מכשיר בלי GApps לא נתקל בזה — ולכן הבעיה הזאת התגלתה רק אחרי המעבר
+#    לתמונה עם שירותי גוגל, והיא **חלה גם על טאבלט אמיתי עם Play**.
+adb shell "settings put global verifier_verify_adb_installs 0" >/dev/null 2>&1 || true
+adb shell "settings put global package_verifier_enable 0" >/dev/null 2>&1 || true
+echo "  verifier_verify_adb_installs=$(adb shell 'settings get global verifier_verify_adb_installs' | tr -d '\r')"
 
 echo "== 5. התקנה — ובלי להפעיל את האפליקציה =="
 # 🛑 אסור `am start` לפני סעיף 7. פתיחת Fully לפני ההקצאה הורסת את DeviceOwnerReceiver.
