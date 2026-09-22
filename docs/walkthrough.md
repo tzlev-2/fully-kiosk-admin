@@ -1,5 +1,43 @@
 # יומן פיתוח — ניהול קיוסק פולי (kiosk-admin)
 
+## 2026-09-22 10:17
+
+### נקודת provisioning: הממשק מגיש את קונפיג ה-Fully למכשיר חדש
+
+מכשיר חדש מוגדר עכשיו **מ-ADB בלבד**, בלי ענן של Fully ובלי הגדרה ידנית:
+‏`ProvisioningActivity` מוריד את ה-JSON מהממשק, ו-Fully מייבא אותו.
+
+#### מה נוסף
+
+- **`functions/provision/[[path]].ts`** — ‏Pages Function שמגישה את הקונפיג.
+  בודקת טוקן בהשוואת-זמן-קבוע מול `PROVISION_TOKEN`, ומזריקה את ערכי ה-`*Enc`
+  מ-`FULLY_SECRETS`. בלי טוקן — 404.
+- **`src/lib/provisioning/fully-settings.json`** — 401 מפתחות, **בלי אף סוד**.
+  ‏`remoteAdminPasswordEnc`, `kioskPinEnc` ו-`kioskWifiPinEnc` הוצאו לסודות של
+  Pages, כי ההצפנה של Fully הפיכה עם מפתח שמוטמע ב-APK.
+
+#### למה הנתיב הוא `/provision/<שם>.json`
+
+‏Fully מסיק את סוג הקובץ **מסיומת ה-URL**. עם `/provision` הוא נכשל ב-
+`JSON file must be in JSON format, now: provision`. מכאן ה-catch-all
+`[[path]].ts` — הכתובת חייבת להסתיים ב-`.json`.
+
+#### פריסה
+
+הפרויקט הועבר לחשבון Cloudflare של tzlev (‏`kiosk-admin-alm.pages.dev`),
+והדומיין `kiosk-admin.tzlev.ovh` הוסב אליו. אין Git integration — פריסה ידנית:
+‏`bun run build` ואז `wrangler pages deploy build --project-name kiosk-admin`.
+
+⚠️ **לא להריץ `cf deploy` על הריפו הזה** — הוא ממיר את הפרויקט ל-`adapter-cloudflare`
+ומשנה `svelte.config.js`, `wrangler.jsonc`, `package.json` ו-`tsconfig.json`.
+
+#### אומת על מכשיר
+
+‏`TAB KINGKONG` (אנדרואיד 13): התקנה, `dpm set-device-owner`, ואז
+`am start … --es FULLY_SETTINGS_DOWNLOAD_LOCATION "https://kiosk-admin.tzlev.ovh/provision/fully-settings.json?token=…"`
+→ ‏`Settings imported` → קיוסק נעול, 406 מפתחות, 8 אריחים.
+
+
 ## 2026-09-22 01:13
 
 ### ‏termux-proxy-server: הסקריפט עובד בעולם האמיתי, ודף מצב-קיוסק מוגש מהמכשיר
