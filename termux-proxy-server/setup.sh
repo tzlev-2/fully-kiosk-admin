@@ -17,7 +17,7 @@ CONFIG_DIR="$HOME/.config/kiosk-proxy"
 LOG_DIR="$PREFIX/var/log/sv"
 SHELL_BIN="$PREFIX/bin/sh"
 BOOT_DIR="$HOME/.termux/boot"
-SERVICES="caddy kiosk-restart"
+SERVICES="caddy kiosk-restart sshd"
 
 # sv/sv-enable קוראים את SVDIR מהסביבה; ב-shell לא-אינטראקטיבי (SSH) הוא ריק
 export SVDIR="$PREFIX/var/service"
@@ -31,7 +31,7 @@ echo "=== התקנת חבילות ==="
 APT_OPTS="-o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef"
 export DEBIAN_FRONTEND=noninteractive
 pkg update -y
-pkg install -y $APT_OPTS caddy nodejs termux-services
+pkg install -y $APT_OPTS caddy nodejs termux-services openssh
 # ‏bootstrap טרי מגיע עם openssl ישן מדי ל-node:
 #   CANNOT LINK EXECUTABLE "node": cannot locate symbol "OSSL_PROVIDER_add_conf_parameter"
 pkg upgrade -y $APT_OPTS openssl nodejs || echo "  ⚠ pkg upgrade החזיר שגיאה — ממשיך ובודק את node עצמו"
@@ -67,6 +67,30 @@ make_service() {
 echo "=== יצירת שירותים ==="
 make_service caddy         "caddy run --config $CONFIG_DIR/Caddyfile"
 make_service kiosk-restart "node $CONFIG_DIR/kiosk-restart-server.js"
+
+# --- sshd: מסלול-חילוץ כשה-adb נופל ---
+# ‏termux-services כבר מביא שירות sshd מוכן, אז מפעילים אותו ולא בונים אחד.
+sv-enable sshd >/dev/null 2>&1 || true
+echo "  ✓ sshd (פורט 8022)"
+
+# 🔴 ‏OpenSSH מסרב לאימות-מפתח כש-$HOME ניתן לכתיבה לקבוצה/לכולם (StrictModes),
+#    והכשל נראה כ-"Permission denied (publickey)" בלי שום רמז. ‏$HOME שנוצר
+#    ב-mkdir תחת umask מתירני (למשל בהקמה חסרת-מסך דרך run-as) יוצא 777.
+chmod 700 "$HOME"
+[ -d "$HOME/.ssh" ] && chmod 700 "$HOME/.ssh"
+[ -f "$HOME/.ssh/authorized_keys" ] && chmod 600 "$HOME/.ssh/authorized_keys"
+
+# מפתח ציבורי שמונח ליד הסקריפט מותקן אוטומטית; אחרת מדווחים ולא ממציאים מפתח.
+if [ -f "$SCRIPT_DIR/authorized_keys" ]; then
+	mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+	cp "$SCRIPT_DIR/authorized_keys" "$HOME/.ssh/authorized_keys"
+	chmod 600 "$HOME/.ssh/authorized_keys"
+	echo "  ✓ authorized_keys הותקן"
+elif [ -s "$HOME/.ssh/authorized_keys" ]; then
+	echo "  ✓ authorized_keys קיים ($(wc -l < "$HOME/.ssh/authorized_keys" | tr -d ' ') מפתחות)"
+else
+	echo "  ⚠ אין authorized_keys — ‏ssh לא יעבוד. הניחו קובץ authorized_keys ליד הסקריפט והריצו שוב."
+fi
 
 # --- שרידות reboot ---
 echo "=== Termux:Boot ==="
