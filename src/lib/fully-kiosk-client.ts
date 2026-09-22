@@ -108,6 +108,31 @@ export class FullyKioskClient {
 		return this.request<BaseResponse>('setAudioVolume', { level, stream });
 	}
 
+	async postForm(cmd: string, params: Record<string, string>): Promise<BaseResponse> {
+		const body = new URLSearchParams();
+		body.append('cmd', cmd);
+		body.append('password', this.password);
+		body.append('type', 'json');
+		for (const [key, value] of Object.entries(params)) {
+			body.append(key, value);
+		}
+
+		const response = await fetch(this.baseUrl + '/', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body,
+			signal: AbortSignal.timeout(8000)
+		});
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}`);
+		}
+		return response.json() as Promise<BaseResponse>;
+	}
+
+	async listSettings(): Promise<unknown> {
+		return this.request('listSettings');
+	}
+
 	async getScreenshot(): Promise<Blob> {
 		const url = new URL(this.baseUrl + '/');
 		url.searchParams.append('cmd', 'getScreenshot');
