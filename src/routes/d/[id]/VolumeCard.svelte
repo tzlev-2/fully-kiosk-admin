@@ -57,7 +57,7 @@
 		</div>
 
 		<div
-			class="collapse border border-base-content/10 bg-base-100/50"
+			class="collapse-arrow collapse border border-base-content/10 bg-base-100/50"
 			class:collapse-open={advanced}
 		>
 			<button

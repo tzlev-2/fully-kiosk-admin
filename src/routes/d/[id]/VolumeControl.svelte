@@ -55,6 +55,7 @@
 			id={testId}
 			data-testid={testId}
 			{disabled}
+			class="min-w-0 flex-1"
 			bind:value={display}
 			onchange={onRangeChange}
 		/>

@@ -104,12 +104,13 @@ export class KioskDevice {
 
 	async saveVolumeCfg(writer: SettingsWriter, next: VolumeCfg): Promise<void> {
 		const cfg = clampCfgToMax(next);
+		const prevMaxLevel = this.volumeCfg.maxLevel;
 		await writer.write(this.toRecord(), 'boosterVolumeCfg', serializeVolumeCfg(cfg));
-		if (cfg.maxLevel !== this.volumeCfg.maxLevel) {
-			await writer.write(this.toRecord(), 'volumeLimits', `3:${cfg.maxLevel}`);
-		}
 		this.volumeCfg = cfg;
 		this.hooks.persist();
+		if (cfg.maxLevel !== prevMaxLevel) {
+			await writer.write(this.toRecord(), 'volumeLimits', `3:${cfg.maxLevel}`);
+		}
 	}
 
 	private getClient(): FullyKioskClient {
@@ -166,7 +167,9 @@ export class KioskDevice {
 					this.hooks.onInfo(this);
 				}
 			})
-			.catch(() => {});
+			.catch(() => {
+				this.optimisticVolume = null;
+			});
 	}
 
 	async connect(): Promise<boolean> {
@@ -324,7 +327,11 @@ export class KioskDevice {
 		const clamped = Math.max(0, Math.min(100, level));
 		this.optimisticVolume = clamped;
 		try {
-			await this.getClient().setAudioVolume(clamped);
+			const res = await this.getClient().setAudioVolume(clamped);
+			if (res.status === 'NOK') {
+				this.optimisticVolume = null;
+				return false;
+			}
 			this.refreshInBackground();
 			return true;
 		} catch {
