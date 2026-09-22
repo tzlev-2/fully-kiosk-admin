@@ -94,3 +94,27 @@
 - `bun run test:unit -- --run` — ירוק
 - `bunx eslint .` — ירוק
 - `prettier --check` על קבצי הסלייס — ירוק
+
+## 2026-09-22 — slice volume-ui
+
+### מחוון ווליום אחד עם גילוי הדרגתי + תקרה הרסנית
+
+- `maxLevel` נוסף ל-`VolumeCfg` (ברירת-מחדל 100) + `clampCfgToMax` טהורה; `BOOSTER_IIFE` הועתק מהייחוס כלשונו (כולל safety-net `Math.min(d.gameLevel,d.maxLevel)`)
+- "עוצמה עכשיו" הפכה לנגזרת: `volumeLevel`/`isMuted` על `KioskDevice` הם getters מ-`deviceInfo.audioVolumes` (זרם 3, `audio-volumes.ts` חדש — חיפוש-לפי-מפתח, לא אינדקס) עם `optimisticVolume` מקומי שמוצג עד רענון אמיתי
+- `applyDeviceInfo()` — מקום יחיד שמשים `deviceInfo` שלם ומאפס את האופטימי; כולל אתר-המיזוג ב-`kiosk-store.applyIdentity`
+- `setVolume` קורא כעת ל-`refreshInBackground` אחרי כתיבה מוצלחת (לא קרא לזה בכלל קודם)
+- `VolumeControl.svelte` חדשה — הבעלית היחידה של `<input type="range">` בריפו, ארבעה שימושים (עכשיו/משחק/תגמול/מקסימום) עם `data-testid`/`aria-label` ייחודיים
+- `VolumeCard.svelte` מחליפה את `VolumeSliders.svelte` ואת בלוק-השמע הישן ב-`+page.svelte`; כפתור "מתקדם" חושף שלושה מחווני-תצורה עם `{#if}` אמיתי (לא CSS-בלבד)
+- חיתוך `maxLevel` הרסני: הורדת התקרה מורידה `gameLevel`/`otherLevel` איתה, והערך החתוך נשמר; `volumeLimits=3:<max>` נכתב רק כשהתקרה עצמה זזה
+
+#### באג שנמצא ותוקן
+
+`$effect(() => void device.loadVolumeCfg(writer))` ב-`VolumeCard` היה תלוי (דרך `toRecord()`, לפני ה-`await` הראשון) ב-`device.volumeCfg` — ששני המתודות עצמן כותבות. effect שכותב למה שהוא קורא ממנו הוא לולאה-אינסופית (תיעוד Svelte). זה שכתב כל כתיבה מוצלחת בחזרה לערך מהשרת לפני שהטסט הספיק להבחין בה. תוקן ב-`untrack()`. נחשף רק כי G6/G9 בודקים את ה-DOM אחרי כתיבה, לא רק את ה-store.
+
+#### בדיקות
+
+- `bun run check` → 0 ERRORS, 3 WARNINGS (כולן `DeviceForm.svelte`, בסיס)
+- `bunx eslint .` → נקי
+- `bun run test:unit -- --run` → 76/76
+- `prettier --check` על קבצי הסלייס → ירוק
+- בקרה שלילית: שש מוטציות על G5–G9, כל אחת בנפרד, כל אחת אדימה את השער המדויק שהיא אמורה לשמור עליו (ר' "סטיות מהתכנון" בבריף לפירוט מלא)
