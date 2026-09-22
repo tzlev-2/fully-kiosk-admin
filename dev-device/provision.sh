@@ -91,11 +91,54 @@ d['skipLaunchButtonInProvisioning'] = True
 json.dump(d, open(sys.argv[2], 'w', encoding='utf-8'))
 print("  מפתחות:", len(d))
 PY
-python3 -m http.server "$SERVE_PORT" --bind 127.0.0.1 --directory "$SERVE_DIR" >/dev/null 2>&1 &
+# ⚠️ הקובץ המוגש מכיל את סיסמת ה-Remote Admin. נקשר לכתובת אחת בלבד,
+#    והשרת נהרג ב-trap בסוף הריצה.
+python3 -m http.server "$SERVE_PORT" --bind "${SERVE_ADDR:-0.0.0.0}" --directory "$SERVE_DIR" >/dev/null 2>&1 &
 SERVE_PID=$!
 sleep 1
-SETTINGS_URL="${SETTINGS_URL:-http://127.0.0.1:$SERVE_PORT/fully-settings.json}"
-echo "  מוגש ב-$SETTINGS_URL (‏SETTINGS_URL לדריסה, למשל כתובת מנהרה)"
+# 🛑 הכתובת חייבת להיות כזו שה**מכשיר** מגיע אליה. ‏127.0.0.1 היא הלולאה של
+#    המכונה שמריצה כאן, ו-Fully מפעיל שרת-localhost משלו שחוטף את הכתובת —
+#    כלומר טעות כאן אינה נכשלת בבירור אלא מחזירה זבל.
+if [[ -z "${SETTINGS_URL:-}" ]]; then
+	DEV_GW="$(adb shell 'ip route | grep default' 2>/dev/null | tr -d '\r' | awk '{print $3}' | head -1)"
+	DEV_NET="$(adb shell 'ip -4 addr show eth0 2>/dev/null || ip -4 addr show wlan0' 2>/dev/null | tr -d '\r' | grep -oE 'inet [0-9.]+/[0-9]+' | head -1 | cut -d' ' -f2)"
+	# הכתובת של המכונה הזאת שנמצאת באותה רשת כמו המכשיר
+	SERVE_ADDR="$(ip -4 -o addr show 2>/dev/null | awk '{print $4}' | while read c; do
+		[[ -n "$DEV_NET" ]] && python3 - "$c" "$DEV_NET" <<-'PY' 2>/dev/null
+		import ipaddress, sys
+		a, b = ipaddress.ip_interface(sys.argv[1]), ipaddress.ip_interface(sys.argv[2])
+		if a.ip in b.network: print(a.ip)
+		PY
+	done | head -1)"
+	[[ -z "$SERVE_ADDR" && -n "$DEV_GW" ]] && SERVE_ADDR="$DEV_GW"
+	if [[ -z "$SERVE_ADDR" ]]; then
+		echo "🛑 לא הצלחתי לקבוע כתובת שהמכשיר יגיע אליה (רשת המכשיר: ${DEV_NET:-לא ידועה})." >&2
+		echo "   להעביר במפורש, למשל כתובת מנהרה:  SETTINGS_URL=https://<host>/fully-settings.json ./provision.sh" >&2
+		exit 1
+	fi
+	SETTINGS_URL="http://$SERVE_ADDR:$SERVE_PORT/fully-settings.json"
+else
+	# כתובת חיצונית סופקה (מנהרה) — המנהרה מתחברת מקומית, ולכן נשארים על
+	# הלולאה ולא חושפים את הקובץ (ובו הסיסמה) לרשת.
+	SERVE_ADDR="127.0.0.1"
+fi
+echo "  מוגש ב-$SETTINGS_URL"
+
+echo "== 4a. בדיקת-סף: המכשיר מגיע לכתובת? =="
+# 🔴 להקצאה יש **זריקה אחת** לכל התקנה. כתובת שהמכשיר לא מגיע אליה שורפת אותה,
+#    והתסמין ("Settings file download failed") מופיע רק אחרי set-device-owner.
+PF_HOST="$(printf '%s' "$SETTINGS_URL" | sed -E 's#^https?://##; s#[:/].*$##')"
+PF_PORT="$(printf '%s' "$SETTINGS_URL" | sed -nE 's#^https?://[^:/]+:([0-9]+).*#\1#p')"
+[[ -z "$PF_PORT" ]] && { [[ "$SETTINGS_URL" == https://* ]] && PF_PORT=443 || PF_PORT=80; }
+if adb shell "nc -w 4 $PF_HOST $PF_PORT </dev/null" >/dev/null 2>&1; then
+	echo "  ✅ המכשיר מגיע ל-$PF_HOST:$PF_PORT"
+else
+	echo "🛑 המכשיר **אינו** מגיע ל-$PF_HOST:$PF_PORT — עוצר לפני שנשרפת ההקצאה." >&2
+	echo "   מכשיר-מעבדה בקונטיינר: chain input ב-nftables הוא policy drop ופותח רק 22," >&2
+	echo "   ולכן פנייה ל-gateway של המאחסן נחסמת. להגיש מקונטיינר על רשת kiosk-dev," >&2
+	echo "   או להעביר SETTINGS_URL של מנהרה ציבורית." >&2
+	exit 1
+fi
 
 echo "== 5. התקנה — ובלי להפעיל את האפליקציה =="
 # 🛑 אסור `am start` לפני סעיף 7. פתיחת Fully לפני ההקצאה הורסת את DeviceOwnerReceiver.
@@ -112,6 +155,7 @@ for op in MANAGE_EXTERNAL_STORAGE SYSTEM_ALERT_WINDOW GET_USAGE_STATS WRITE_SETT
 done
 # שם הרכיב הוא NotificationService — לא MyNotificationListener. שם שגוי נכשל **בשקט**.
 adb shell "cmd notification allow_listener $PKG/de.ozerov.fully.NotificationService" >/dev/null 2>&1 || true
+sleep 1   # ההגדרה לא נקראת מיד אחרי הכתיבה — בלי זה האימות למטה מדווח null בשקר
 adb shell "dumpsys deviceidle whitelist +$PKG" >/dev/null 2>&1 || true
 adb shell "appops get $PKG" | tr -d '\r' | grep -cE ': allow' | sed 's/^/  app-ops מאושרים: /'
 adb shell 'settings get secure enabled_notification_listeners' | tr -d '\r' | sed 's/^/  listener: /'
@@ -186,9 +230,20 @@ for i in $(seq 1 24); do
 	[[ $i -eq 24 ]] && { echo "‏REST לא עלה. adb logcat -d | grep -iE 'Provisioning|Remote admin'"; exit 1; }
 done
 
-echo "== 10. אימות מבחוץ =="
-curl -sS --max-time 8 -G "$FULLY_URL/" \
-	--data-urlencode cmd=deviceInfo --data-urlencode "password=$PW" --data-urlencode type=json \
-	| head -c 300; echo
+echo "== 10. אימות =="
+# האימות שתמיד עובד — מהמכשיר עצמו, בלי להניח שיש מסלול רשת מכאן אליו.
+adb shell "netstat -ltn 2>/dev/null | grep 2323" | tr -d '\r' | sed 's/^/  /'
+adb shell "dumpsys device_policy | grep -A1 'Device Owner:'" | tr -d '\r' | sed 's/^/  /' | head -2
+
+# ⚠️ ‏FULLY_URL הוא ברירת-מחדל שנכונה רק כשמריצים מהמכונה שמארחת את המכשיר.
+#    מ-srv1812097 מול מכשיר-המעבדה, למשל, הפרוקסי הוא 127.0.0.1:12323.
+if curl -sS --max-time 8 -o /dev/null -G "$FULLY_URL/" \
+	--data-urlencode cmd=deviceInfo --data-urlencode "password=$PW" --data-urlencode type=json 2>/dev/null; then
+	curl -sS --max-time 8 -G "$FULLY_URL/" \
+		--data-urlencode cmd=deviceInfo --data-urlencode "password=$PW" --data-urlencode type=json | head -c 300; echo
+else
+	echo "  ⚠️ אין מסלול מכאן ל-$FULLY_URL — זה **אינו** אומר שהמכשיר תקול."
+	echo "     ‏2323 מאזין עליו (ראו למעלה). לאמת מבחוץ:  FULLY_URL=http://<ip>:2323 ./provision.sh"
+fi
 echo
 echo "המכשיר מוכן. סיסמת Remote Admin ב-$PW_FILE"
