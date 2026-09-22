@@ -1,0 +1,21 @@
+# Caddy — פרוקסי CORS מול המכשיר, כדי שה-SPA יוכל לדבר עם 2323
+# התקנה: /etc/containers/systemd/kiosk-dev-cors.container  →  systemctl daemon-reload
+[Unit]
+Description=CORS proxy for the Fully Kiosk dev device
+After=kiosk-dev-android.service
+Wants=kiosk-dev-android.service
+
+[Container]
+Image=docker.io/library/caddy:2-alpine
+ContainerName=kiosk-dev-cors
+# host כדי להגיע ל-127.0.0.1:2323 שפורסם ע"י קונטיינר האנדרואיד
+Network=host
+Volume=@CADDYFILE@:/etc/caddy/Caddyfile:ro
+Environment=KIOSK_URL=http://127.0.0.1:2323
+Environment=PROXY_PORT=12323
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target

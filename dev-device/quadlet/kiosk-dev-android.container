@@ -1,0 +1,35 @@
+# ReDroid — מכשיר אנדרואיד לניסויי Fully Kiosk (אין KVM על המכונה, ולכן לא אמולטור)
+# מותקן ע"י setup.sh (מחליף @DATA@) ל-/etc/containers/systemd — לא לערוך את העותק המותקן.
+[Unit]
+Description=ReDroid dev device for Fully Kiosk experiments
+Documentation=https://github.com/tzlev-2/fully-kiosk-admin/blob/main/dev-device/README.md
+After=network-online.target
+# מוסיף default route ל-netns אחרי שאנדרואיד סיים אתחול (הוא מוחק אותו בדרך)
+Wants=kiosk-dev-route.service
+Wants=network-online.target
+
+[Container]
+Image=docker.io/redroid/redroid:15.0.0-latest
+ContainerName=kiosk-dev-android
+Network=kiosk-dev.network
+PodmanArgs=--privileged
+# מכשירי binder מפורשים. אין binderfs בקרנל הזה, והמכשירים נוצרו בשמות התקניים
+# בטעינת המודול — ולכן מיפוי שם-לשם. מופע שני יצריך שלישייה ממוספרת (ראו README).
+Volume=/dev/binder:/dev/binder
+Volume=/dev/hwbinder:/dev/hwbinder
+Volume=/dev/vndbinder:/dev/vndbinder
+Volume=@DATA@:/data
+# חשיפה ללוקאלהוסט בלבד: adb מקונטיינר הסוכנים (network=host) מגיע ל-127.0.0.1
+PublishPort=127.0.0.1:5555:5555
+PublishPort=127.0.0.1:2323:2323
+# ‏use_memfd חובה: ashmem הוסר מהקרנל ב-5.18, והמכונה על 6.12.
+# ⚠️ הקידומת androidboot. היא חלק מהשם — ‏redroid.width=… (בלי הקידומת) מתעלם בשקט
+# והמסך נשאר על ברירת המחדל 720x1280. שמות הפרמטרים: redroid-doc/README §Configuration.
+Exec=androidboot.use_memfd=true androidboot.redroid_width=1280 androidboot.redroid_height=800 androidboot.redroid_dpi=160 androidboot.redroid_gpu_mode=guest androidboot.redroid_fps=30
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target default.target

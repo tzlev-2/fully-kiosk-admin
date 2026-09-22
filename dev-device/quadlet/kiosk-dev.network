@@ -1,0 +1,10 @@
+# רשת מבודדת למכשיר-המעבדה. מותקן ע"י setup.sh ל-/etc/containers/systemd.
+# הטעם: תת-רשת ייעודית וצרה, כדי שהכלל העתידי בחומת האש של המאחסן יתיר forward
+# למעבדה בלבד — ולא לכל 10.88.0.0/16 של פודמן (שכולל קונטיינרים אחרים).
+[Unit]
+Description=Isolated network for the Fully Kiosk dev device
+
+[Network]
+NetworkName=kiosk-dev
+Subnet=10.90.90.0/24
+Gateway=10.90.90.1

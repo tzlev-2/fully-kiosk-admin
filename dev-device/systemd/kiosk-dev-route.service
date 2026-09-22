@@ -1,0 +1,12 @@
+[Unit]
+Description=Default route for the Fully Kiosk dev device netns
+After=kiosk-dev-android.service
+PartOf=kiosk-dev-android.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/kiosk-dev-route.sh
+
+[Install]
+WantedBy=multi-user.target
