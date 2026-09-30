@@ -3,7 +3,8 @@
 מכשיר אנדרואיד **בקונטיינר** על netcup, עם Fully Kiosk מותקן ו-REST API פתוח, כדי
 לנסות שינויים בממשק הניהול בלי לגעת בטאבלטים שבכיתות.
 
-**מצב נוכחי (22.9.2026):** רץ. אנדרואיד 15 x86_64 (`redroid15_x86_64`), מסך
+**מצב נוכחי (30.9.2026):** רץ. אנדרואיד **14 x86_64 + GApps** (`redroid14_x86_64`,
+אימג' בנוי מקומית `localhost/redroid/redroid:14.0.0_mindthegapps`), מסך
 1280x800, ‏Fully Kiosk Browser 1.61.3, ‏REST API מאומת. אחרי
 `systemctl restart kiosk-dev-android` — אנדרואיד עולה ב-20 שניות וה-REST חוזר לבד
 תוך 5 נוספות. ‏baseline שמור: `/var/lib/kiosk-dev-android/snapshots/baseline-fully-1.61.3.tgz`.
