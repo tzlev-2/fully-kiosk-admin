@@ -1,0 +1,19 @@
+[Unit]
+Description=Default route for the Fully Kiosk dev device netns
+After=kiosk-dev-android.service
+PartOf=kiosk-dev-android.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/kiosk-dev-route.sh
+# אנדרואיד מוחק את kernel.modprobe ב-first-stage init, והסיסקטל אינו namespaced —
+# מקונטיינר privileged הכתיבה בורחת למאחסן ומשביתה טעינת-מודולים בכל המכונה.
+# 🛑 לא ניתן לחסום ב-mount: נוסה Volume=/dev/null:/proc/sys/kernel/modprobe, ה-mount
+# נוצר (podman inspect) אבל init מרכיב procfs שני מעליו וקובר אותו (נמדד 30.9.2026).
+# היחידה הזו ממתינה ל-sys.boot_completed, כלומר רצה אחרי הכתיבה — ולכן היא המקום היחיד
+# שמרפא. ExecStartPost על יחידת הקונטיינר רץ מוקדם מדי, לפני שאנדרואיד מוחק.
+ExecStartPost=/sbin/sysctl -q -w kernel.modprobe=/sbin/modprobe
+
+[Install]
+WantedBy=multi-user.target

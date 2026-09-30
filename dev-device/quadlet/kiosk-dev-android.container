@@ -1,0 +1,42 @@
+# ReDroid — מכשיר אנדרואיד לניסויי Fully Kiosk (אין KVM על המכונה, ולכן לא אמולטור)
+# מותקן ע"י setup.sh (מחליף @DATA@) ל-/etc/containers/systemd — לא לערוך את העותק המותקן.
+[Unit]
+Description=ReDroid dev device for Fully Kiosk experiments
+Documentation=https://github.com/tzlev-2/fully-kiosk-admin/blob/main/dev-device/README.md
+After=network-online.target
+# מוסיף default route ל-netns אחרי שאנדרואיד סיים אתחול (הוא מוחק אותו בדרך)
+Wants=kiosk-dev-route.service
+Wants=network-online.target
+
+[Container]
+# 🛑 אימג' **בנוי מקומית** — אינו ניתן למשיכה. לבנות לפני setup.sh:
+#   redroid-doc/build.sh -a 14.0.0 -mtg   (GApps בלי Magisk — אנחנו רוצים מכשיר בלי root)
+#   ואז לתייג: podman tag <id> localhost/redroid/redroid:14.0.0_mindthegapps
+# למה 14 ולא 15: ב-15 ה-WebView קורס ב-renderer ו-Fully מתה כל ~1.5 שניות ⇒ אי-אפשר
+# לבדוק UI. במעבר ל-14+GApps: קריסות 15→0, זמינות REST 28/30→40/40, רינדור דף עובד.
+# ⚠️ תוקן 30.9.2026 — השורה כאן נשארה על 15 חודש אחרי שהמכונה עברה ל-14, ו-setup.sh
+# היה מוריד את המכשיר אחורה ומחזיר את הקריסה.
+Image=localhost/redroid/redroid:14.0.0_mindthegapps
+ContainerName=kiosk-dev-android
+Network=kiosk-dev.network
+PodmanArgs=--privileged
+# מכשירי binder מפורשים. אין binderfs בקרנל הזה, והמכשירים נוצרו בשמות התקניים
+# בטעינת המודול — ולכן מיפוי שם-לשם. מופע שני יצריך שלישייה ממוספרת (ראו README).
+Volume=/dev/binder:/dev/binder
+Volume=/dev/hwbinder:/dev/hwbinder
+Volume=/dev/vndbinder:/dev/vndbinder
+Volume=@DATA@:/data
+# חשיפה ללוקאלהוסט בלבד: adb מקונטיינר הסוכנים (network=host) מגיע ל-127.0.0.1
+PublishPort=127.0.0.1:5555:5555
+PublishPort=127.0.0.1:2323:2323
+# ‏use_memfd חובה: ashmem הוסר מהקרנל ב-5.18, והמכונה על 6.12.
+# ⚠️ הקידומת androidboot. היא חלק מהשם — ‏redroid.width=… (בלי הקידומת) מתעלם בשקט
+# והמסך נשאר על ברירת המחדל 720x1280. שמות הפרמטרים: redroid-doc/README §Configuration.
+Exec=androidboot.use_memfd=true androidboot.redroid_width=1280 androidboot.redroid_height=800 androidboot.redroid_dpi=160 androidboot.redroid_gpu_mode=guest androidboot.redroid_fps=30
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target default.target

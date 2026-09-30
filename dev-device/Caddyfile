@@ -1,0 +1,23 @@
+# פרוקסי CORS למכשיר-המעבדה (ReDroid) — גרסת שרת של termux-proxy-server/Caddyfile
+# בלי handle /restart|/status: אין kiosk-restart-server במעבדה, מפעילים מחדש ב-adb.
+:{$PROXY_PORT:12323} {
+	bind 127.0.0.1
+
+	@options method OPTIONS
+	respond @options "" 204
+
+	header {
+		Access-Control-Allow-Origin *
+		Access-Control-Allow-Methods "GET, POST, OPTIONS"
+		Access-Control-Allow-Headers "*"
+		Access-Control-Allow-Private-Network "true"
+		-Server
+	}
+
+	respond /ping "pong" 200
+
+	reverse_proxy {$KIOSK_URL:http://127.0.0.1:2323} {
+		header_up Host {upstream_hostport}
+		lb_try_duration 2s
+	}
+}
