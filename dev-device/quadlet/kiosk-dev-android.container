@@ -20,6 +20,7 @@ Image=localhost/redroid/redroid:14.0.0_mindthegapps
 ContainerName=kiosk-dev-android
 Network=kiosk-dev.network
 PodmanArgs=--privileged
+PidsLimit=4096
 # מכשירי binder מפורשים. אין binderfs בקרנל הזה, והמכשירים נוצרו בשמות התקניים
 # בטעינת המודול — ולכן מיפוי שם-לשם. מופע שני יצריך שלישייה ממוספרת (ראו README).
 Volume=/dev/binder:/dev/binder
